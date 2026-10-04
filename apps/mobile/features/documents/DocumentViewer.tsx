@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
+import { allowScreenCaptureAsync, preventScreenCaptureAsync } from 'expo-screen-capture';
+import { useEffect } from 'react';
 import { X } from 'lucide-react-native';
 import { ActivityIndicator, Image, Linking, Modal, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +23,16 @@ export function DocumentViewer({ doc, onClose }: { doc: TenantDocumentItem | nul
     gcTime: 0,
     retry: false,
   });
+  // Aadhaar and PAN are sensitive: block screenshots and screen recording while a document is open.
+  const open = !!doc;
+  useEffect(() => {
+    if (!open) return;
+    preventScreenCaptureAsync('document').catch(() => undefined);
+    return () => {
+      allowScreenCaptureAsync('document').catch(() => undefined);
+    };
+  }, [open]);
+
   const url = data?.url;
   const isImage = doc?.mimeType.startsWith('image/');
 

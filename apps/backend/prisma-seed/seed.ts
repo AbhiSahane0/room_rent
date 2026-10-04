@@ -28,6 +28,9 @@ async function main() {
 
   const username = process.env.SEED_ADMIN_USERNAME ?? 'owner';
   const password = process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe123!';
+  if (process.env.NODE_ENV === 'production' && (password === 'ChangeMe123!' || password.length < 12)) {
+    throw new Error('Set SEED_ADMIN_PASSWORD to a strong password (12+ characters) before seeding production.');
+  }
   let user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
   if (!user) user = await prisma.user.create({ data: { username, passwordHash: await argon2.hash(password, { type: argon2.argon2id }) } });
   console.log(`Owner account ready: ${user.username}`);

@@ -23,5 +23,6 @@ export function configureApp(app: NestExpressApplication) {
   app.useGlobalPipes(createValidationPipe());
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(new ResponseInterceptor(app.get(Reflector)));
-  app.set('trust proxy', 1);
+  // Needed so rate limiting sees the real client IP behind a proxy. Never trust X-Forwarded-For when exposed directly.
+  app.set('trust proxy', config.get('TRUST_PROXY', { infer: true }));
 }

@@ -1,43 +1,144 @@
 # Rent Manager
 
-Mobile rental / room management app for a property owner (React Native + Expo) with a NestJS + Prisma + PostgreSQL
-backend and private Cloudflare R2 document storage. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for design decisions.
+A mobile rental and room management app for a property owner: properties, rooms, tenants, Aadhaar/PAN documents,
+rent, electricity, monthly bills, payments, PDF invoices, dashboard and reports.
+
+- **Mobile**: React Native + Expo (Android first, iOS-ready), Expo Router, NativeWind, TanStack Query, React Hook Form + Zod, Lucide icons
+- **Backend**: NestJS + TypeScript, Prisma, PostgreSQL (Supabase), argon2, JWT access + rotating refresh sessions, PDFKit
+- **Storage**: private Cloudflare R2 bucket (S3 API). The phone never holds storage credentials.
 
 ```
-apps/mobile    Expo (Android first, iOS-ready), Expo Router, NativeWind, TanStack Query
-apps/backend   NestJS REST API, Prisma, argon2, JWT access + rotating refresh sessions
-packages/shared  Shared enums / types
-prisma/        schema.prisma + SQL migrations (includes DB-level business rules)
+Mobile app ──HTTPS──▶ NestJS API ──▶ Supabase PostgreSQL
+                          └───────▶ Cloudflare R2 (private documents)
 ```
 
-## Getting started
+```
+apps/mobile      Expo app (app/ routes, components/ui design system, features/, api/, services/, theme/)
+apps/backend     NestJS API (auth, properties, rooms, tenants, assignments, documents, billing, payments, reports, dashboard)
+packages/shared  Shared enums and response types
+prisma/          schema.prisma and SQL migrations (database-level business rules live here)
+docs/            Architecture notes
+```
+
+Design decisions are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+---
+
+## 1. Run it locally
+
+Requirements: Node 20+ (tested on 22), PostgreSQL 14+ (or a Supabase project).
 
 ```bash
 npm install
-cp .env.example apps/backend/.env      # then fill in your keys (see below)
-npm run db:migrate                     # or: npm run -w @rental/backend prisma:deploy
-npm run db:seed                        # creates the owner account (SEED_ADMIN_USERNAME / SEED_ADMIN_PASSWORD)
-npm run backend                        # API on :3000
-cp apps/mobile/.env.example apps/mobile/.env   # EXPO_PUBLIC_API_URL
-npm run mobile                         # Expo dev server
+
+# Backend configuration
+cp .env.example apps/backend/.env        # edit DATABASE_URL, JWT secrets, R2 keys (see section 2)
+
+# Database
+npm run db:migrate                       # creates/updates tables (use prisma:deploy against Supabase)
+npm run db:seed                          # owner account + demo data (Sunrise Residency, rooms 101-105, 3 tenants, bills, payments)
+
+npm run backend                          # API on http://localhost:3000   (GET /health)
+
+# Mobile
+cp apps/mobile/.env.example apps/mobile/.env     # EXPO_PUBLIC_API_URL
+npm run mobile                           # Expo dev server; press "a" for an Android emulator
 ```
 
-Android emulator reaches the host machine at `http://10.0.2.2:3000`; on a physical device use your computer's LAN IP.
-Note: Expo Go is enough for the current screens; document capture/sharing may need a development build
-(`npx expo run:android`).
+Default seeded login: `owner` / `ChangeMe123!` (from `SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD`). **Change it** under
+More > Settings > Profile & Security. `npm run -w @rental/backend prisma:seed:admin` creates only the account, no demo data.
 
-## Environment variables
+API URL from the app: Android emulator `http://10.0.2.2:3000`, iOS simulator `http://localhost:3000`, physical phone
+`http://<your-computer-LAN-IP>:3000`. Production must be `https://`.
 
-Backend (`apps/backend/.env`): `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
-`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `JWT_SECRET`, `JWT_REFRESH_SECRET`.
-Mobile (`apps/mobile/.env`): `EXPO_PUBLIC_API_URL` only. **Never** put secrets in `EXPO_PUBLIC_*`.
+Without R2 keys, development falls back to storing documents on local disk (`apps/backend/.storage`, git-ignored) behind the
+same signed, expiring links. **Production refuses to start without R2 configured.**
 
-Supabase: use the pooled connection string (port 6543, `?pgbouncer=true`) as `DATABASE_URL` and the direct
-connection (port 5432) as `DIRECT_URL` (used by `prisma migrate`).
+## 2. Accounts you need
 
-## Checks
+### Supabase (PostgreSQL)
+1. Create a project. Settings > Database > Connection string.
+2. `DATABASE_URL` = the **pooled** string (port 6543, add `?pgbouncer=true&connection_limit=1`), `DIRECT_URL` = the **direct** string (port 5432).
+3. Run migrations once from your machine (or CI): `npm run -w @rental/backend prisma:deploy`.
+4. `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are reserved for future Supabase features; the app talks to Postgres through Prisma only.
+   Keep the service-role key on the server. Do not enable public API access to these tables (the API is the only client).
+
+### Cloudflare R2
+1. Create a bucket (for example `rent-documents`) and leave it **private** (no public access, no custom public domain).
+2. R2 > Manage API tokens > create a token with *Object Read & Write* scoped to that bucket.
+3. Set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` on the **backend only**.
+
+## 3. Environment variables
+
+| Where | Variable | Purpose |
+|---|---|---|
+| backend | `DATABASE_URL`, `DIRECT_URL` | Prisma connections (pooled / direct) |
+| backend | `JWT_SECRET`, `JWT_REFRESH_SECRET` | Token signing. Use long random values: `openssl rand -base64 48` |
+| backend | `ACCESS_TOKEN_TTL` (15m), `REFRESH_TOKEN_TTL_DAYS` (90) | Session lifetimes. The refresh window slides while the app is used |
+| backend | `R2_*` | Private document storage |
+| backend | `CORS_ORIGINS` | Comma-separated web origins allowed (native apps are not subject to CORS) |
+| backend | `TRUST_PROXY` | `1` when behind one reverse proxy (Render, Railway, Fly, Nginx), so rate limiting sees real client IPs |
+| backend | `PORT`, `NODE_ENV` | Server |
+| backend | `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD` | First owner account (`db:seed`) |
+| mobile | `EXPO_PUBLIC_API_URL` | **The only** mobile variable. It is public by design; never put secrets in `EXPO_PUBLIC_*` |
+
+## 4. Quality checks
 
 ```bash
 npm run typecheck && npm run lint && npm test
 ```
-Backend e2e tests run against a real PostgreSQL database (`room_rent_test` by default; override with `TEST_DATABASE_URL`).
+
+The backend suite (111 tests) runs against a real PostgreSQL database (`room_rent_test`, created and migrated
+automatically; override with `TEST_DATABASE_URL`). It covers login, refresh rotation and reuse detection, logout, room assignment
+(including concurrent requests), move-out, rent changes, electricity and bill maths, duplicate-bill prevention, carry-forward,
+partial payments and races, outstanding balances, document authorisation and validation, PDF contents, reports, and the full
+28-step acceptance scenario (`apps/backend/test/acceptance.e2e-spec.ts`).
+
+## 5. Deploy the API
+
+**Container (any host: Render, Railway, Fly.io, a VPS).** `docker build -t rent-manager-api .` from the repo root, then run it with the
+backend variables above, `NODE_ENV=production` and `TRUST_PROXY=1`. The container applies pending migrations on start
+(`prisma migrate deploy`) and exposes `/health`. Terminate HTTPS at the platform's proxy.
+> The Dockerfile was written and reviewed but could not be built in the authoring environment (no Docker daemon). Build it once in CI before relying on it.
+
+**Without Docker.** `npm ci && npm run -w @rental/backend build`, then from `apps/backend`: `npx prisma migrate deploy --schema ../../prisma/schema.prisma && node dist/main.js`.
+The PDF fonts live in `apps/backend/assets/fonts`; deploy that folder alongside `dist/`.
+
+First production run: set `SEED_ADMIN_USERNAME` and a strong `SEED_ADMIN_PASSWORD` (12+ chars), then `npm run -w @rental/backend prisma:seed:admin`.
+Production never seeds demo data.
+
+## 6. Build the Android app
+
+```bash
+cd apps/mobile
+# set EXPO_PUBLIC_API_URL (https) in eas.json or as an EAS environment variable
+npx eas-cli@latest build -p android --profile preview      # installable APK for testing
+npx eas-cli@latest build -p android --profile production   # Play Store bundle
+```
+Camera, document picker, sharing and PDF viewing use native modules, so use an EAS build or a development build
+(`npx expo run:android`) rather than relying on Expo Go. iOS uses the same code: `eas build -p ios` (needs an Apple developer account).
+
+## 7. Security summary
+
+- Passwords hashed with **argon2id**; login errors are generic and timing-equalised; login is rate limited (8/min/IP) and all routes are throttled.
+- **Access token 15 min, refresh token rotating** (hash stored server-side). Replaying an old refresh token revokes the session; a 30 s grace window tolerates a lost response. Tokens are stored only in **Expo SecureStore**; passwords are never stored on the phone. Logout revokes the session server-side. Disabling the account or changing the password signs devices out.
+- Every query is scoped to the owning user (tests prove another account gets 404 everywhere). Prisma parameterises SQL; the three raw queries use bound parameters.
+- Documents: stored under opaque UUID keys in a **private** bucket, validated by file **content** (JPEG/PNG/WebP/PDF, 10 MB max), served only through **5-minute signed URLs** issued after an ownership check and audited. The viewer blocks screenshots on-device.
+- Helmet headers, strict CORS (no origins by default), `Cache-Control: no-store` on every API response, validation with whitelisting on every DTO, errors never expose stack traces or driver messages.
+- Money is calculated **server-side** in integer paise; totals sent by the client are rejected. History is protected by database constraints and triggers (frozen bill amounts, append-only payments, one active assignment per room/tenant, one live bill per tenant and month).
+- Never logged: passwords, tokens, signed URLs, storage keys, document contents. Audit entries record actions and ids only.
+- `npm audit` (production dependencies) reports nothing in runtime backend packages; the remaining findings are in Expo/Metro build tooling and the Prisma CLI.
+
+## 8. Behaviour notes and current limits
+
+- **Carry-forward**: a new bill includes the tenant's unpaid balance as *Previous balance*; the older bills are linked (`carried forward`) and their amounts never change. Payments go to the newest bill. Bills must be generated in month order.
+- **Overdue** is derived from the due date at read time.
+- **Cancelling** a bill is only possible with no payments; it frees the month and the meter reading so the bill can be regenerated. Recorded payments are permanent (no reversal yet).
+- `DRAFT` exists as a status but bills are generated directly (no draft editing in the MVP).
+- Rent is billed per whole month (no proration for mid-month move-in or move-out).
+- Not included, by design for the MVP: tenant login/portal, OTP/social login, WhatsApp Business API, SMS/email automation, online payments, accounting, offline-first sync.
+
+## 9. Known gaps to be aware of
+
+- The native share sheet, camera capture and Android PDF viewer are implemented with Expo's native modules and compile into the Android bundle, but they could only be exercised through the browser preview in the authoring environment. Do one pass on a real phone before launch (camera permission prompt, "Take Photo", Share to WhatsApp, View PDF).
+- Supabase and R2 were verified against a local PostgreSQL and the R2 request signing logic, not against live Supabase/R2 accounts (no keys were available).

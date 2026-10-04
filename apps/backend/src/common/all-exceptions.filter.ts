@@ -47,7 +47,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       status = HttpStatus.CONFLICT;
       message = 'Historical records cannot be modified';
     } else {
-      this.logger.error(exception instanceof Error ? `${exception.name}: ${exception.message}` : 'Unknown error');
+      // Truncated: driver error messages can echo query parameters, which may be personal data.
+      this.logger.error(exception instanceof Error ? `${exception.name}: ${exception.message.split('\n')[0].slice(0, 160)}` : 'Unknown error');
     }
 
     res.status(status).json({ success: false, message, ...(errors ? { errors } : {}) });

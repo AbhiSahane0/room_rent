@@ -149,7 +149,7 @@ export class AuthService {
   async authenticate(token: string) {
     let payload: { sub: string; sid: string };
     try {
-      payload = await this.jwt.verifyAsync(token, { secret: this.config.get('JWT_SECRET', { infer: true }) });
+      payload = await this.jwt.verifyAsync(token, { secret: this.config.get('JWT_SECRET', { infer: true }), algorithms: ['HS256'] });
     } catch {
       throw new UnauthorizedException('Unauthorized');
     }
@@ -168,6 +168,7 @@ export class AuthService {
     try {
       return await this.jwt.verifyAsync<RefreshPayload>(token, {
         secret: this.config.get('JWT_REFRESH_SECRET', { infer: true }),
+        algorithms: ['HS256'],
       });
     } catch {
       throw new UnauthorizedException(INVALID);
@@ -180,8 +181,8 @@ export class AuthService {
     const accessTtl = this.config.get('ACCESS_TOKEN_TTL', { infer: true });
 
     const [accessToken, refreshToken] = await Promise.all([
-      this.jwt.signAsync({ sub: userId, sid: sessionId, username }, { secret: this.config.get('JWT_SECRET', { infer: true }), expiresIn: accessTtl as any }),
-      this.jwt.signAsync({ sub: userId, sid: sessionId, jti }, { secret: this.config.get('JWT_REFRESH_SECRET', { infer: true }), expiresIn: `${ttlDays}d` as any }),
+      this.jwt.signAsync({ sub: userId, sid: sessionId, username }, { secret: this.config.get('JWT_SECRET', { infer: true }), expiresIn: accessTtl as any, algorithm: 'HS256' }),
+      this.jwt.signAsync({ sub: userId, sid: sessionId, jti }, { secret: this.config.get('JWT_REFRESH_SECRET', { infer: true }), expiresIn: `${ttlDays}d` as any, algorithm: 'HS256' }),
     ]);
     await this.prisma.session.update({
       where: { id: sessionId },

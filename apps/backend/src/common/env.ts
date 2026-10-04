@@ -16,6 +16,8 @@ const schema = z.object({
   ACCESS_TOKEN_TTL: z.string().default('15m'),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(90),
   CORS_ORIGINS: z.string().default(''),
+  /** Number of reverse proxies in front of the API (Render/Railway/Fly/Nginx = 1). 0 when exposed directly. */
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
 });
 
 export type Env = z.infer<typeof schema>;
