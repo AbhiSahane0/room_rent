@@ -57,13 +57,23 @@ API URL from the app: Android emulator `http://10.0.2.2:3000`, iOS simulator `ht
 Without R2 keys, development falls back to storing documents on local disk (`apps/backend/.storage`, git-ignored) behind the
 same signed, expiring links. **Production refuses to start without R2 configured.**
 
-### Import an existing Excel register
-`npm run db:import -- /path/to/RENT.xlsx --dry-run` previews, and without `--dry-run` it imports the rooms, current tenants and the latest
-month's bills from the sheet's **Billing** tab (options: `--property-name`, `--address`, `--city`, `--state`, `--pincode`, `--rate`).
-It runs through the real services, checks each tenant's *Monthly Payment* against what the app calculates, and stops if they differ.
-The sheet's *Outstanding* becomes the tenant's **opening balance** (added to the first bill; a negative advance credit is not imported).
-Phone numbers, deposits and meter readings are not in the sheet: add them in the app. Before the first new bill, type each room's last meter
-reading into **Previous** on Generate Bill. Run it on the machine that holds your `.env` (so it writes to Supabase), and never commit the spreadsheet.
+### Import an existing Excel register (full history)
+```bash
+npm run db:import -- /path/to/RENT.xlsx --dry-run     # preview: tenants, rooms, dues, anything odd in the sheet
+npm run db:import -- /path/to/RENT.xlsx               # import everything
+npm run db:import -- /path/to/RENT.xlsx --replace     # delete the previous import (that property only) and import again
+```
+Reads the **Billing** tab: every month since 2017, every tenant who ever lived there, their stays (room, dates, rent changes) and every monthly bill.
+The sheet records what was billed and the unpaid balance carried into the next month, not the payments, so each payment is **derived**:
+*paid = month total minus the balance the sheet carries forward*. They are dated the 10th of the next month, method "Other", reference `IMPORTED`.
+Bill totals always equal the sheet; where the sheet's own numbers do not add up, the bill shows an explicit *Adjustment as per register* line (the dry run counts them).
+Month labels that are out of order are fixed from the block order, a block copied twice counts once, and name suffixes like "- 20" are ignored.
+
+**Tenants who left owing money** keep those dues: a tenant's last month is left unpaid only if the sheet already showed arrears in it, otherwise it is assumed paid.
+The latest month (Aug 2026) is billed but unpaid for everyone. Former tenants with dues appear on Home, in Reports > Outstanding and in the Tenants tab, and you can record payments against them as usual.
+
+Not in the sheet, so add them in the app: phone numbers, security deposits and meter readings (type the last reading into **Previous** on the first new bill).
+Run it on the machine that holds your `.env` (so it writes to Supabase), and never commit the spreadsheet. Use `--current-only` for just the latest month.
 
 ## 2. Accounts you need
 

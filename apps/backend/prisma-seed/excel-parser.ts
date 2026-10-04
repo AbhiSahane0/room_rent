@@ -10,6 +10,11 @@ export interface SheetRow {
   societyMaintenance: number;
   outstanding: number;
   total: number | null;
+  /** 'arrears': the "Outstanding" row, an unpaid balance carried in from earlier months and already inside the monthly total.
+   *  'deposit': the early "Deposit Pending" row, shown for information and NOT part of the monthly total. */
+  kind: 'arrears' | 'deposit';
+  /** Position of the monthly block in the sheet (0 = first). Month labels contain typos, order does not. */
+  block: number;
 }
 
 const MONTHS: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
@@ -42,6 +47,7 @@ export async function parseBillingSheet(file: string): Promise<SheetRow[]> {
   if (!ws) throw new Error('This workbook has no "Billing" sheet.');
 
   const rows: SheetRow[] = [];
+  let block = -1;
   for (let r = 1; r <= ws.rowCount; r++) {
     if (clean(cellValue(ws.getCell(r, 2).value)).toLowerCase() !== 'tenant name') continue;
     const label: Record<string, number> = {};
@@ -50,6 +56,8 @@ export async function parseBillingSheet(file: string): Promise<SheetRow[]> {
       if (l && label[l] === undefined) label[l] = k;
     }
     if (!label['room no'] || !label['month'] || !label['monthly rental']) continue;
+    block++;
+    const kind: SheetRow['kind'] = label['outstanding'] !== undefined ? 'arrears' : 'deposit';
     const get = (key: string[], c: number) => {
       const k = key.map((x) => label[x]).find((x) => x !== undefined);
       return k ? cellValue(ws.getCell(k, c).value) : undefined;
@@ -70,6 +78,8 @@ export async function parseBillingSheet(file: string): Promise<SheetRow[]> {
         societyMaintenance: num(get(['society maintenance'], c)),
         outstanding: num(get(['outstanding', 'deposit pending'], c)),
         total: total === undefined ? null : num(total),
+        kind,
+        block,
       });
     }
   }
