@@ -27,7 +27,6 @@ export default function MoreScreen() {
     setBusy(true);
     await logout();
   };
-  const soon = () => undefined;
 
   return (
     <Screen>
@@ -36,8 +35,8 @@ export default function MoreScreen() {
         <Row icon={Banknote} label="Payments" onPress={() => router.push('/payments')} />
         <Row icon={ChartColumn} label="Reports" onPress={() => router.push('/reports')} />
         <Row icon={MapPin} label="Properties" onPress={() => router.push('/properties')} />
-        <Row icon={Settings} label="Settings" onPress={soon} />
-        <Row icon={CircleHelp} label="Help" onPress={soon} last />
+        <Row icon={Settings} label="Settings" onPress={() => router.push('/settings')} />
+        <Row icon={CircleHelp} label="Help" onPress={() => router.push('/help')} last />
       </Card>
       <Card padded={false} className="mt-4">
         <Row icon={LogOut} label="Logout" onPress={() => setConfirming(true)} danger last />

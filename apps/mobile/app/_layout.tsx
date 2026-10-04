@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ApiError } from '@/api/client';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 
@@ -55,7 +56,9 @@ export default function RootLayout() {
           <View className="flex-1 bg-bg">
             <StatusBar style="dark" />
             <OfflineBanner />
-            <RootStack />
+            <ErrorBoundary>
+              <RootStack />
+            </ErrorBoundary>
           </View>
         </AuthProvider>
       </QueryClientProvider>
