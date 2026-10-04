@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react-native';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { forwardRef, useState } from 'react';
-import { Pressable, TextInput, TextInputProps, View } from 'react-native';
+import { Platform, Pressable, TextInput, TextInputProps, View } from 'react-native';
 import { cn } from '@/utils/cn';
 import { colors } from '@/theme';
 import { Icon } from './Icon';
@@ -24,7 +24,7 @@ export const Input = forwardRef<TextInput, Props>(function Input(
   const [focused, setFocused] = useState(false);
   const [hidden, setHidden] = useState(!!secure);
   return (
-    <View className={cn('gap-1.5', containerClassName)}>
+    <View className={cn('min-w-0 gap-1.5', containerClassName)}>
       {label ? <Text variant="label" tone="soft">{label}</Text> : null}
       <View
         className={cn(
@@ -57,7 +57,7 @@ export const Input = forwardRef<TextInput, Props>(function Input(
             setFocused(false);
             props.onBlur?.(e);
           }}
-          style={{ fontFamily: 'Inter_400Regular', fontSize: 15, color: colors.ink.DEFAULT, flex: 1, paddingVertical: 0, outlineStyle: 'none' } as any}
+          style={{ fontFamily: 'Inter_400Regular', fontSize: Platform.OS === 'web' ? 16 : 15, color: colors.ink.DEFAULT, flex: 1, minWidth: 0, paddingVertical: 0, outlineStyle: 'none' } as any}
           {...props}
         />
         {secure ? (

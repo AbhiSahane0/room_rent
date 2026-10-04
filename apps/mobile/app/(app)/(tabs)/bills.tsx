@@ -9,6 +9,7 @@ import { BillCard } from '@/features/bills/BillCard';
 import { useProperty } from '@/features/properties/PropertyProvider';
 import { PropertySwitcher } from '@/features/properties/PropertySwitcher';
 import { useDebounced } from '@/hooks/useDebounced';
+import { useListLayout } from '@/hooks/useListLayout';
 import { colors } from '@/theme';
 import type { BillStatus } from '@/types/api';
 
@@ -18,6 +19,7 @@ const FILTERS: { label: string; value?: BillStatus }[] = [
 
 export default function BillsScreen() {
   const router = useRouter();
+  const { listProps, cell } = useListLayout(96);
   const { current, isLoading: loadingProps } = useProperty();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<BillStatus | undefined>();
@@ -55,10 +57,10 @@ export default function BillsScreen() {
         keyExtractor={(b) => b.id}
         ListHeaderComponent={header}
         ListEmptyComponent={body}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 96, gap: 12, flexGrow: 1 }}
+        {...listProps}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => <BillCard bill={item} onPress={() => router.push({ pathname: '/bills/[id]', params: { id: item.id } })} />}
+        renderItem={({ item }) => cell(<BillCard bill={item} onPress={() => router.push({ pathname: '/bills/[id]', params: { id: item.id } })} />)}
         onEndReached={() => q.hasNextPage && !q.isFetchingNextPage && q.fetchNextPage()}
         onEndReachedThreshold={0.4}
         ListFooterComponent={q.isFetchingNextPage ? <ActivityIndicator color={colors.primary.DEFAULT} className="py-4" /> : null}

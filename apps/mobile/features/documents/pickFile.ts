@@ -34,7 +34,8 @@ async function fromImageAsset(asset: ImagePicker.ImagePickerAsset, baseName: str
 }
 
 export async function takePhoto(baseName: string): Promise<PickedDocument | null> {
-  const perm = await ImagePicker.requestCameraPermissionsAsync();
+  // Browsers ask for camera access themselves when the capture dialog opens.
+  const perm = Platform.OS === 'web' ? { granted: true } : await ImagePicker.requestCameraPermissionsAsync();
   if (!perm.granted) throw new PickError('Camera access is needed to take a photo. You can allow it in your phone settings.');
   const res = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.9, allowsEditing: false });
   if (res.canceled || !res.assets[0]) return null;

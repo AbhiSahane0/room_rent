@@ -3,7 +3,7 @@ import { ChevronRight, CircleCheck, DoorOpen } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Card, DetailRow, EmptyState, ErrorState, Header, Icon, MonthStepper, ProgressBar, Screen, SectionHeader, SegmentedControl, SkeletonList, StatCard, Text } from '@/components/ui';
-import { useCollectionReport, useOccupancyReport, useOutstandingReport } from '@/features/dashboard';
+import { useCollectionReport, useDashboard, useOccupancyReport, useOutstandingReport } from '@/features/dashboard';
 import { METHOD_LABEL } from '@/features/payments/constants';
 import { useProperty } from '@/features/properties/PropertyProvider';
 import { TrendChart } from '@/features/reports/TrendChart';
@@ -15,19 +15,22 @@ export default function ReportsScreen() {
   const params = useLocalSearchParams<{ tab?: Tab }>();
   const [tab, setTab] = useState<Tab>(params.tab ?? 'collection');
   const { current } = useProperty();
+  // Open on the month the dashboard resolved (the latest month with bills), not an empty current month.
+  const dash = useDashboard(current?.id);
+  const initialMonth = dash.data?.collection?.month;
   return (
-    <Screen edges={['top', 'bottom']}>
+    <Screen wide edges={['top', 'bottom']}>
       <Header title="Reports" subtitle={current?.name} />
       <View className="mb-4">
         <SegmentedControl value={tab} onChange={setTab} options={[{ value: 'collection', label: 'Collection' }, { value: 'occupancy', label: 'Occupancy' }, { value: 'outstanding', label: 'Outstanding' }]} />
       </View>
-      {!current ? <EmptyState icon={DoorOpen} title="No property yet" message="Reports appear once you have a property with rooms and bills." /> : tab === 'collection' ? <CollectionTab propertyId={current.id} /> : tab === 'occupancy' ? <OccupancyTab propertyId={current.id} /> : <OutstandingTab propertyId={current.id} />}
+      {!current ? <EmptyState icon={DoorOpen} title="No property yet" message="Reports appear once you have a property with rooms and bills." /> : tab === 'collection' ? <CollectionTab key={initialMonth ?? 'pending'} propertyId={current.id} initialMonth={initialMonth} /> : tab === 'occupancy' ? <OccupancyTab propertyId={current.id} /> : <OutstandingTab propertyId={current.id} />}
     </Screen>
   );
 }
 
-function CollectionTab({ propertyId }: { propertyId: string }) {
-  const [month, setMonth] = useState(toYM(monthStart()));
+function CollectionTab({ propertyId, initialMonth }: { propertyId: string; initialMonth?: string }) {
+  const [month, setMonth] = useState(initialMonth ?? toYM(monthStart()));
   const q = useCollectionReport(propertyId, month);
   const d = q.data;
   return (

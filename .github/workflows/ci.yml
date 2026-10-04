@@ -36,6 +36,11 @@ jobs:
         run: npm test
       - name: Build backend
         run: npm run -w @rental/backend build
+      - name: Build the web app (static site)
+        working-directory: apps/mobile
+        run: CI=1 npx expo export --platform web --output-dir /tmp/web-dist
+        env:
+          EXPO_PUBLIC_API_URL: https://api.example.com
       - name: Bundle the Android app (compile check)
         working-directory: apps/mobile
         run: CI=1 npx expo export --platform android --output-dir /tmp/android-bundle

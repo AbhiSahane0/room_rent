@@ -115,7 +115,33 @@ The PDF fonts live in `apps/backend/assets/fonts`; deploy that folder alongside 
 First production run: set `SEED_ADMIN_USERNAME` and a strong `SEED_ADMIN_PASSWORD` (12+ chars), then `npm run -w @rental/backend prisma:seed:admin`.
 Production never seeds demo data.
 
-## 6. Build the Android app
+## 6. Web app (laptop and phone browsers, installable on iPhone)
+
+The same code runs as a website, so iPhone users do not need the App Store. It is responsive: phones get the bottom-tab layout,
+tablets get card grids, and laptops get a sidebar with a centred content column.
+
+```bash
+npm run web                 # local dev server in the browser
+EXPO_PUBLIC_API_URL=https://api.yourdomain.com npm run web:build    # static site in apps/mobile/dist
+```
+
+Deploy `apps/mobile/dist` to any static host. **Cloudflare Pages** (you already use Cloudflare): create a project, build command
+`npm ci && npm run web:build`, output directory `apps/mobile/dist`, and set `EXPO_PUBLIC_API_URL` as a build variable. `public/_redirects`
+makes deep links work and `public/_headers` adds security headers. Then:
+
+1. In `apps/mobile/public/_headers`, replace `https://api.example.com` in the `connect-src` rule with your API origin.
+2. On the **backend**, set `CORS_ORIGINS=https://your-web-domain` (comma-separated for several) and `TRUST_PROXY=1`.
+3. Serve both over HTTPS (required for camera access, installing to the home screen and secure cookies/headers).
+
+**iPhone:** open the site in Safari, tap Share, then *Add to Home Screen*. It opens full screen with its own icon like an app.
+**Android/desktop Chrome:** use the install icon in the address bar. Camera capture, file upload, PDF view/download and Share work in the browser
+(iPhone Safari offers the native share sheet for the PDF; desktop browsers download it instead).
+
+Web security note: on the web the session tokens live in the browser's `localStorage` (phones use the secure keystore). The short 15-minute
+access token, rotating refresh token with replay detection, and the strict Content-Security-Policy in `_headers` limit the risk; keep the CSP
+and do not add third-party scripts to the site. Signing out revokes the session on the server.
+
+## 7. Build the Android app
 
 ```bash
 cd apps/mobile
@@ -126,7 +152,7 @@ npx eas-cli@latest build -p android --profile production   # Play Store bundle
 Camera, document picker, sharing and PDF viewing use native modules, so use an EAS build or a development build
 (`npx expo run:android`) rather than relying on Expo Go. iOS uses the same code: `eas build -p ios` (needs an Apple developer account).
 
-## 7. Security summary
+## 8. Security summary
 
 - Passwords hashed with **argon2id**; login errors are generic and timing-equalised; login is rate limited (8/min/IP) and all routes are throttled.
 - **Access token 15 min, refresh token rotating** (hash stored server-side). Replaying an old refresh token revokes the session; a 30 s grace window tolerates a lost response. Tokens are stored only in **Expo SecureStore**; passwords are never stored on the phone. Logout revokes the session server-side. Disabling the account or changing the password signs devices out.
@@ -137,7 +163,7 @@ Camera, document picker, sharing and PDF viewing use native modules, so use an E
 - Never logged: passwords, tokens, signed URLs, storage keys, document contents. Audit entries record actions and ids only.
 - `npm audit` (production dependencies) reports nothing in runtime backend packages; the remaining findings are in Expo/Metro build tooling and the Prisma CLI.
 
-## 8. Behaviour notes and current limits
+## 9. Behaviour notes and current limits
 
 - **Carry-forward**: a new bill includes the tenant's unpaid balance as *Previous balance*; the older bills are linked (`carried forward`) and their amounts never change. Payments go to the newest bill. Bills must be generated in month order.
 - **PDF**: the default bill PDF is the owner's one-table monthly rent form (tenant, room, month, rent, electricity, society charges, outstanding, monthly payment). The formal A4 invoice is still available at `/bills/:id/pdf?format=invoice`.
@@ -147,7 +173,8 @@ Camera, document picker, sharing and PDF viewing use native modules, so use an E
 - Rent is billed per whole month (no proration for mid-month move-in or move-out).
 - Not included, by design for the MVP: tenant login/portal, OTP/social login, WhatsApp Business API, SMS/email automation, online payments, accounting, offline-first sync.
 
-## 9. Known gaps to be aware of
+## 10. Known gaps to be aware of
 
 - The native share sheet, camera capture and Android PDF viewer are implemented with Expo's native modules and compile into the Android bundle, but they could only be exercised through the browser preview in the authoring environment. Do one pass on a real phone before launch (camera permission prompt, "Take Photo", Share to WhatsApp, View PDF).
+- The web app was exercised in Chromium with an iPhone profile, not in real Safari or on a real iPhone. Before launch, install it on the client's iPhone and try login, photo capture, View PDF, Share and Add to Home Screen.
 - Supabase and R2 were verified against a local PostgreSQL and the R2 request signing logic, not against live Supabase/R2 accounts (no keys were available).

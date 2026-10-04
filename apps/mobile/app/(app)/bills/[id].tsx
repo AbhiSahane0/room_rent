@@ -83,7 +83,7 @@ export default function BillDetailScreen() {
       {!cancelled ? (
         <>
           <SectionHeader title={created === '1' ? 'Share this bill' : 'Invoice'} />
-          <BillActions billId={bill.id} billNumber={bill.billNumber} />
+          <BillActions billId={bill.id} billNumber={bill.billNumber} version={`${bill.paidAmount}-${bill.storedStatus}`} />
         </>
       ) : null}
 

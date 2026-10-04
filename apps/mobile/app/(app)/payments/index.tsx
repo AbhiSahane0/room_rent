@@ -10,12 +10,14 @@ import { METHODS } from '@/features/payments/constants';
 import { PropertySwitcher } from '@/features/properties/PropertySwitcher';
 import { useProperty } from '@/features/properties/PropertyProvider';
 import { useDebounced } from '@/hooks/useDebounced';
+import { useListLayout } from '@/hooks/useListLayout';
 import { colors } from '@/theme';
 import type { PaymentMethod } from '@/types/api';
 import { formatINR, formatYM, monthStart, toYM } from '@/utils/format';
 
 export default function PaymentsScreen() {
   const router = useRouter();
+  const { listProps, cell } = useListLayout(32);
   const { current } = useProperty();
   const thisMonth = toYM(monthStart());
   const [month, setMonth] = useState<string | null>(thisMonth); // null = all time
@@ -61,16 +63,16 @@ export default function PaymentsScreen() {
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-bg">
-      <View className="px-4"><Header title="Payments" right={<Button label="Record" icon={Plus} size="sm" fullWidth={false} onPress={() => router.push('/payments/new')} />} /></View>
+      <View className="w-full self-center px-4" style={{ maxWidth: 1100 }}><Header title="Payments" right={<Button label="Record" icon={Plus} size="sm" fullWidth={false} onPress={() => router.push('/payments/new')} />} /></View>
       <FlatList
         data={body ? [] : payments}
         keyExtractor={(p) => p.id}
         ListHeaderComponent={header}
         ListEmptyComponent={body}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, gap: 10, flexGrow: 1 }}
+        {...listProps}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => <PaymentRow payment={item} onPress={() => router.push({ pathname: '/bills/[id]', params: { id: item.billId } })} />}
+        renderItem={({ item }) => cell(<PaymentRow payment={item} onPress={() => router.push({ pathname: '/bills/[id]', params: { id: item.billId } })} />)}
         onEndReached={() => q.hasNextPage && !q.isFetchingNextPage && q.fetchNextPage()}
         onEndReachedThreshold={0.4}
         ListFooterComponent={q.isFetchingNextPage ? <ActivityIndicator color={colors.primary.DEFAULT} className="py-4" /> : null}

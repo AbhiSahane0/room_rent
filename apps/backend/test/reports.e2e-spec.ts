@@ -91,6 +91,13 @@ describe('Dashboard & reports (e2e)', () => {
     expect(d.username).toBe('owner');
   });
 
+  it('falls back to the latest billed month when the current month has no bills', async () => {
+    const d = (await owner.get(`/dashboard?propertyId=${propertyId}`).expect(200)).body.data;
+    // the suite bills August to October 2026; whichever is the newest month with bills is shown, never an empty current month
+    expect(d.collection.month <= '2026-10' || d.collection.expected > 0).toBe(true);
+    expect(d.collection.expected).toBeGreaterThan(0);
+  });
+
   it('defaults to the first property and handles a property with no data', async () => {
     expect((await owner.get('/dashboard')).body.data.property.id).toBe(propertyId);
     const empty = (await owner.get(`/dashboard?propertyId=${emptyPropertyId}`)).body.data;

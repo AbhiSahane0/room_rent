@@ -5,6 +5,7 @@ import { ActivityIndicator, FlatList, RefreshControl, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Chip, EmptyState, ErrorState, Fab, Input, SkeletonList, Text } from '@/components/ui';
 import { useDebounced } from '@/hooks/useDebounced';
+import { useListLayout } from '@/hooks/useListLayout';
 import { PropertySwitcher } from '@/features/properties/PropertySwitcher';
 import { useProperty } from '@/features/properties/PropertyProvider';
 import { useRooms } from '@/features/rooms/api';
@@ -18,6 +19,7 @@ const FILTERS: { label: string; value?: RoomStatus }[] = [
 
 export default function RoomsScreen() {
   const router = useRouter();
+  const { listProps, cell } = useListLayout(96);
   const { current, isLoading: loadingProps } = useProperty();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<RoomStatus | undefined>();
@@ -57,10 +59,10 @@ export default function RoomsScreen() {
         keyExtractor={(r) => r.id}
         ListHeaderComponent={header}
         ListEmptyComponent={body}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 96, gap: 12, flexGrow: 1 }}
+        {...listProps}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
+        renderItem={({ item }) => cell(
           <RoomCard
             room={item}
             onView={() => router.push({ pathname: '/rooms/[id]', params: { id: item.id } })}

@@ -1,7 +1,7 @@
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Calendar } from 'lucide-react-native';
-import { useState } from 'react';
-import { Modal, Platform, Pressable, TextInput, View } from 'react-native';
+import { createElement, useState } from 'react';
+import { Modal, Platform, Pressable, View } from 'react-native';
 import { cn } from '@/utils/cn';
 import { formatDate, toISODate } from '@/utils/format';
 import { colors } from '@/theme';
@@ -48,13 +48,17 @@ export function DateField({ label, value, onChange, error, minimumDate, maximumD
     <View className="gap-1.5">
       {label ? <Text variant="label" tone="soft">{label}</Text> : null}
       {Platform.OS === 'web' ? (
-        <TextInput
-          value={value ?? ''}
-          onChangeText={onChange}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={colors.ink.muted}
-          style={{ fontFamily: 'Inter_400Regular', fontSize: 15, height: 48, borderWidth: 1, borderColor: error ? colors.danger.DEFAULT : colors.line.strong, borderRadius: 12, paddingHorizontal: 12, backgroundColor: '#fff' }}
-        />
+        // Browsers (including iPhone Safari) provide their own native date picker for this input.
+        createElement('input', {
+          type: 'date',
+          value: value ?? '',
+          min: minimumDate ? toISODate(minimumDate) : undefined,
+          max: maximumDate ? toISODate(maximumDate) : undefined,
+          disabled,
+          'aria-label': label ?? 'Date',
+          onChange: (e: { target: { value: string } }) => e.target.value && onChange(e.target.value),
+          style: { fontFamily: 'Inter_400Regular', fontSize: 16, height: 48, boxSizing: 'border-box', border: `1px solid ${error ? colors.danger.DEFAULT : colors.line.strong}`, borderRadius: 12, padding: '0 12px', backgroundColor: disabled ? colors.surface.muted : '#fff', color: colors.ink.DEFAULT, width: '100%' },
+        })
       ) : (
         <Pressable
           onPress={open}

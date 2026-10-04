@@ -5,6 +5,7 @@ import { ActivityIndicator, FlatList, RefreshControl, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Chip, EmptyState, ErrorState, Fab, Input, SkeletonList, Text } from '@/components/ui';
 import { useDebounced } from '@/hooks/useDebounced';
+import { useListLayout } from '@/hooks/useListLayout';
 import { useProperty } from '@/features/properties/PropertyProvider';
 import { PropertySwitcher } from '@/features/properties/PropertySwitcher';
 import { useTenants } from '@/features/tenants/api';
@@ -16,6 +17,7 @@ const FILTERS: { label: string; value?: TenantStatus }[] = [{ label: 'All' }, { 
 
 export default function TenantsScreen() {
   const router = useRouter();
+  const { listProps, cell } = useListLayout(96);
   const { current, isLoading: loadingProps } = useProperty();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<TenantStatus | undefined>();
@@ -55,10 +57,10 @@ export default function TenantsScreen() {
         keyExtractor={(t) => t.id}
         ListHeaderComponent={header}
         ListEmptyComponent={body}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 96, gap: 12, flexGrow: 1 }}
+        {...listProps}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => <TenantCard tenant={item} onPress={() => router.push({ pathname: '/tenants/[id]', params: { id: item.id } })} />}
+        renderItem={({ item }) => cell(<TenantCard tenant={item} onPress={() => router.push({ pathname: '/tenants/[id]', params: { id: item.id } })} />)}
         onEndReached={() => q.hasNextPage && !q.isFetchingNextPage && q.fetchNextPage()}
         onEndReachedThreshold={0.4}
         ListFooterComponent={q.isFetchingNextPage ? <ActivityIndicator color={colors.primary.DEFAULT} className="py-4" /> : null}

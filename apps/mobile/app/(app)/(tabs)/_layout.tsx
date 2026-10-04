@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
 import { Icon } from '@/components/ui';
+import { useLayout } from '@/hooks/useLayout';
 import { colors, fonts } from '@/theme';
 
 function tabIcon(glyph: LucideIcon) {
@@ -15,6 +16,7 @@ function tabIcon(glyph: LucideIcon) {
 }
 
 export default function TabsLayout() {
+  const { isDesktop } = useLayout();
   return (
     <Tabs
       screenOptions={{
@@ -22,7 +24,8 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary.DEFAULT,
         tabBarInactiveTintColor: colors.ink.muted,
         tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 11 },
-        tabBarStyle: { backgroundColor: colors.surface.DEFAULT, borderTopColor: colors.line.DEFAULT, height: 64, paddingTop: 6, paddingBottom: 6 },
+        // Laptops use the sidebar instead of bottom tabs.
+        tabBarStyle: isDesktop ? { display: 'none' } : { backgroundColor: colors.surface.DEFAULT, borderTopColor: colors.line.DEFAULT, height: 64, paddingTop: 6, paddingBottom: 6 },
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: tabIcon(House) }} />

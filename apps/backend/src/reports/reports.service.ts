@@ -29,10 +29,19 @@ export class ReportsService {
     return propertyId ? [(await this.properties.assertOwned(userId, propertyId)).id] : this.properties.ownedIds(userId);
   }
 
+  /** This month, unless nothing is billed yet: then the most recent month that has bills, so the dashboard is never empty by accident. */
+  private async defaultMonth(propertyIds: string[]) {
+    const now = currentMonth();
+    const live = { propertyId: { in: propertyIds }, status: { notIn: ['CANCELLED' as const, 'DRAFT' as const] } };
+    if (await this.prisma.bill.findFirst({ where: { ...live, billingPeriod: bounds(now).start }, select: { id: true } })) return now;
+    const latest = await this.prisma.bill.findFirst({ where: { ...live, billingPeriod: { lte: bounds(shift(now, 1)).start } }, orderBy: { billingPeriod: 'desc' }, select: { billingPeriod: true } });
+    return latest ? ymOf(latest.billingPeriod) : now;
+  }
+
   /** What was billed for the month, what came in during it, and what is still owed right now. */
   async collection(userId: string, q: { propertyId?: string; month?: string }) {
     const propertyIds = await this.scope(userId, q.propertyId);
-    const month = q.month ?? currentMonth();
+    const month = q.month ?? (await this.defaultMonth(propertyIds));
     const { start, end } = bounds(month);
 
     const [billed, collected, byMethod, outstanding, trend] = await Promise.all([

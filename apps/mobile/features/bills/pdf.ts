@@ -8,6 +8,8 @@ import { ApiError, authedFetch } from '@/api/client';
 const PDF_ERROR = 'The PDF could not be generated. Please check your internet connection and try again.';
 
 export interface BillPdf {
+  /** Browser only: the PDF bytes, kept so sharing can happen synchronously inside a tap. */
+  blob?: Blob;
   /** Local file:// uri on devices; blob: url in the browser preview. */
   uri: string;
   fileName: string;
@@ -20,7 +22,8 @@ export async function fetchBillPdf(billId: string, billNumber: string): Promise<
   if (!res.ok) throw new ApiError(res.status, res.status === 404 ? 'Bill not found' : PDF_ERROR);
 
   if (Platform.OS === 'web') {
-    return { uri: URL.createObjectURL(await res.blob()), fileName };
+    const blob = await res.blob();
+    return { uri: URL.createObjectURL(blob), blob, fileName };
   }
   const bytes = new Uint8Array(await res.arrayBuffer());
   const file = new File(Paths.cache, fileName);
@@ -46,10 +49,10 @@ export async function viewPdf(pdf: BillPdf) {
 export async function sharePdf(pdf: BillPdf) {
   if (Platform.OS === 'web') {
     const nav = navigator as Navigator & { canShare?: (d: unknown) => boolean };
-    const blob = await (await fetch(pdf.uri)).blob();
-    const file = new globalThis.File([blob], pdf.fileName, { type: 'application/pdf' });
+    const file = new globalThis.File([pdf.blob!], pdf.fileName, { type: 'application/pdf' });
     if (nav.canShare?.({ files: [file] })) return nav.share({ files: [file], title: pdf.fileName });
-    return saveToDevice(pdf);
+    await saveToDevice(pdf); // desktop browsers have no share sheet for files: download instead
+    return;
   }
   if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this device.');
   await Sharing.shareAsync(pdf.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Share invoice' });
