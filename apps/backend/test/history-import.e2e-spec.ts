@@ -57,7 +57,7 @@ describe('Excel history import (e2e)', () => {
     const paid = await owner.post(`/bills/${open.id}/payments`, { amount: 2000, paymentDate: '2026-07-20', method: 'UPI' }).expect(201);
     expect(paid.body.data.bill.balance).toBe(4300);
     const dash = (await owner.get(`/dashboard?propertyId=${propertyId}`)).body.data;
-    expect(dash.pendingPayments.some((p: { fullName: string }) => p.fullName === 'Left Owing')).toBe(true);
+    expect(dash.formerTenantDues.some((p: { fullName: string }) => p.fullName === 'Left Owing')).toBe(true);
   });
 
   it('keeps one live tenant per room and marks rooms correctly', async () => {
