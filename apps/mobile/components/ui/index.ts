@@ -21,3 +21,4 @@ export * from './DetailRow';
 export * from './FormField';
 export * from './DateField';
 export * from './StepIndicator';
+export * from './MonthStepper';

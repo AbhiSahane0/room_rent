@@ -55,3 +55,12 @@ export function greeting(now = new Date()) {
 
 export const initials = (name: string) =>
   name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('');
+
+/** "YYYY-MM" helpers for the billing month stepper. */
+export const toYM = (iso: string) => iso.slice(0, 7);
+export function shiftMonth(ym: string, delta: number) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+export const formatYM = (ym: string) => formatMonth(`${ym}-01`);

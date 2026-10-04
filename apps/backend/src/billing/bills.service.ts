@@ -67,7 +67,7 @@ export class BillsService {
   }
 
   /** Builds the full, server-calculated bill without saving anything. */
-  private async buildDraft(userId: string, dto: PreviewBillDto, db: Prisma.TransactionClient | PrismaService = this.prisma): Promise<{ draft: Draft; suggestedPeriod: Date }> {
+  private async buildDraft(userId: string, dto: PreviewBillDto, db: Prisma.TransactionClient | PrismaService = this.prisma, lenient = false): Promise<{ draft: Draft; suggestedPeriod: Date; needsReading: boolean }> {
     const assignment = await this.resolveAssignment(userId, dto);
     const suggestedPeriod = await this.suggestPeriod(assignment);
     const period = dto.billingPeriod ? monthStart(parseDate(`${dto.billingPeriod.slice(0, 7)}-01`, 'Billing month')) : suggestedPeriod;
@@ -90,14 +90,19 @@ export class BillsService {
     const lastReading = await db.electricityReading.findFirst({ where: { assignmentId: assignment.id, billingPeriod: { lt: period } }, orderBy: { billingPeriod: 'desc' } });
     const storedPrevious = lastReading ? money(lastReading.currentReading) : money(assignment.initialMeterReading ?? 0);
     const el = dto.electricity ?? {};
-    const electricity = calculateElectricity({
+    const electricityInput = {
       mode: assignment.electricityMode,
       previousReading: el.previousReading ?? storedPrevious,
       currentReading: el.currentReading,
       ratePerUnit: el.ratePerUnit ?? money(assignment.ratePerUnit ?? assignment.room.ratePerUnit ?? assignment.room.property.defaultRatePerUnit),
       fixedAmount: money(assignment.fixedElectricity ?? 0),
       overrideAmount: el.overrideAmount,
-    });
+    };
+    // The preview may be requested before the meter reading is typed; creating a bill never is.
+    const needsReading = lenient && electricityInput.mode === 'METER' && el.currentReading == null && el.overrideAmount == null;
+    const electricity = needsReading
+      ? { mode: 'METER' as const, previousReading: electricityInput.previousReading, currentReading: null, units: 0, ratePerUnit: electricityInput.ratePerUnit, calculatedAmount: 0, amount: 0, isOverride: false }
+      : calculateElectricity(electricityInput);
     if (el.previousReading != null && el.previousReading !== storedPrevious && assignment.electricityMode === 'METER') electricity.isOverride = true;
 
     const charges = (dto.charges ?? []).map((c) => {
@@ -116,11 +121,11 @@ export class BillsService {
     const dueDate = dto.dueDate ? parseDate(dto.dueDate, 'Due date') : new Date(Date.UTC(period.getUTCFullYear(), period.getUTCMonth(), assignment.room.property.dueDayOfMonth));
     if (dueDate < period) throw new BadRequestException('Due date cannot be before the billing month');
 
-    return { draft: { assignment, period, dueDate, rent, electricity, charges, totals, carry, notes: dto.notes }, suggestedPeriod };
+    return { draft: { assignment, period, dueDate, rent, electricity, charges, totals, carry, notes: dto.notes }, suggestedPeriod, needsReading };
   }
 
   async preview(userId: string, dto: PreviewBillDto) {
-    const { draft, suggestedPeriod } = await this.buildDraft(userId, dto);
+    const { draft, suggestedPeriod, needsReading } = await this.buildDraft(userId, dto, this.prisma, true);
     const a = draft.assignment;
     const recurring = await this.prisma.charge.findMany({ where: { assignmentId: a.id, isActive: true }, orderBy: { createdAt: 'asc' } });
     return {
@@ -131,7 +136,7 @@ export class BillsService {
       suggestedPeriod,
       dueDate: draft.dueDate,
       rent: draft.rent,
-      electricity: draft.electricity,
+      electricity: { ...draft.electricity, needsReading },
       charges: draft.charges,
       totals: draft.totals,
       carriedBills: draft.carry,

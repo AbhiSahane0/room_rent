@@ -110,3 +110,86 @@ export interface TenantDocumentItem {
   sizeBytes: number;
   createdAt: string;
 }
+
+export interface BillListItem {
+  id: string;
+  billNumber: string;
+  billingPeriod: string;
+  dueDate: string;
+  status: BillStatus;
+  totalDue: number;
+  paidAmount: number;
+  balance: number;
+  carriedForwardToId: string | null;
+  tenant: { id: string; fullName: string };
+  room: { id: string; roomNumber: string };
+}
+
+export interface BillItemRow {
+  id: string;
+  type: 'RENT' | 'ELECTRICITY' | 'CHARGE' | 'LATE_FEE' | 'DISCOUNT' | 'PREVIOUS_BALANCE';
+  description: string;
+  amount: number;
+  meta: Record<string, any> | null;
+}
+
+export interface PaymentRow {
+  id: string;
+  billId: string;
+  amount: number;
+  paymentDate: string;
+  method: PaymentMethod;
+  reference: string | null;
+  notes: string | null;
+}
+
+export interface BillDetail {
+  id: string;
+  billNumber: string;
+  billingPeriod: string;
+  dueDate: string;
+  status: BillStatus;
+  storedStatus: BillStatus;
+  rentAmount: number;
+  electricityAmount: number;
+  otherChargesAmount: number;
+  lateFee: number;
+  discount: number;
+  previousBalance: number;
+  totalDue: number;
+  paidAmount: number;
+  balance: number;
+  notes: string | null;
+  items: BillItemRow[];
+  payments: PaymentRow[];
+  tenant: { id: string; fullName: string; phone: string };
+  room: { id: string; roomNumber: string };
+  property: { id: string; name: string; address: string; city: string; state: string; pincode: string };
+  carriedInto: { id: string; billNumber: string } | null;
+  absorbed: { id: string; billNumber: string; billingPeriod: string }[];
+}
+
+export interface BillPreview {
+  assignmentId: string;
+  tenant: { id: string; fullName: string };
+  room: { id: string; roomNumber: string };
+  billingPeriod: string;
+  suggestedPeriod: string;
+  dueDate: string;
+  rent: number;
+  electricity: {
+    mode: ElectricityMode;
+    previousReading: number | null;
+    currentReading: number | null;
+    units: number;
+    ratePerUnit: number | null;
+    calculatedAmount: number;
+    amount: number;
+    isOverride: boolean;
+    needsReading: boolean;
+  };
+  charges: { type: ChargeType; name: string; amount: number }[];
+  totals: { rent: number; electricity: number; otherCharges: number; lateFee: number; discount: number; subtotal: number; previousBalance: number; totalDue: number };
+  carriedBills: { id: string; billNumber: string; balance: number }[];
+  recurringCharges: { id: string; type: ChargeType; name: string; amount: number }[];
+}

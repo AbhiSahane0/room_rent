@@ -49,6 +49,14 @@ describe('Billing (e2e)', () => {
     expect(d.tenant.fullName).toBe('Rahul Sharma');
   });
 
+  it('preview works before a reading is typed, but a bill cannot be created without one', async () => {
+    const p = await owner.post('/bills/preview', { assignmentId, billingPeriod: '2026-09' }).expect(200);
+    expect(p.body.data.electricity).toMatchObject({ needsReading: true, previousReading: 1200, amount: 0 });
+    expect(p.body.data.totals).toMatchObject({ rent: 8000, totalDue: 8000 });
+    const res = await owner.post('/bills', { assignmentId, billingPeriod: '2026-09' }).expect(400);
+    expect(res.body.message).toBe('Enter the current meter reading');
+  });
+
   it('refuses client-supplied totals and unknown fields', async () => {
     const res = await owner.post('/bills', septemberBody({ totalDue: 1, rentAmount: 1 })).expect(400);
     expect(res.body.success).toBe(false);
