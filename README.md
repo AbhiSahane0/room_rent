@@ -102,6 +102,8 @@ automatically on first run; override with `TEST_DATABASE_URL`; the name must con
 partial payments and races, outstanding balances, document authorisation and validation, PDF contents, reports, and the full
 28-step acceptance scenario (`apps/backend/test/acceptance.e2e-spec.ts`).
 
+> Step-by-step hosting guide (Supabase, R2, Render, Vercel): [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Config files: `render.yaml` (API) and `vercel.json` (website).
+
 ## 5. Deploy the API
 
 **Container (any host: Render, Railway, Fly.io, a VPS).** `docker build -t rent-manager-api .` from the repo root, then run it with the
