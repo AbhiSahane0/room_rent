@@ -1,5 +1,6 @@
 import { Banknote, ChartColumn, ChevronRight, CircleHelp, MapPin, LogOut, Settings } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Card, ConfirmDialog, Icon, Screen, Text } from '@/components/ui';
@@ -18,6 +19,7 @@ function Row({ icon, label, onPress, danger, last }: { icon: LucideIcon; label: 
 }
 
 export default function MoreScreen() {
+  const router = useRouter();
   const { logout } = useAuth();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -33,7 +35,7 @@ export default function MoreScreen() {
       <Card padded={false}>
         <Row icon={Banknote} label="Payments" onPress={soon} />
         <Row icon={ChartColumn} label="Reports" onPress={soon} />
-        <Row icon={MapPin} label="Properties" onPress={soon} />
+        <Row icon={MapPin} label="Properties" onPress={() => router.push('/properties')} />
         <Row icon={Settings} label="Settings" onPress={soon} />
         <Row icon={CircleHelp} label="Help" onPress={soon} last />
       </Card>

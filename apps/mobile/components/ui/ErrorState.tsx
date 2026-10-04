@@ -20,7 +20,7 @@ export function ErrorState({ error, onRetry }: { error?: unknown; onRetry?: () =
       </View>
       <Text variant="heading" className="text-center">{offline ? 'You appear to be offline' : 'Something went wrong'}</Text>
       <Text tone="soft" className="mt-1.5 mb-6 text-center">{message}</Text>
-      {onRetry ? <Button label="Retry" variant="secondary" onPress={onRetry} fullWidth={false} className="px-8" /> : null}
+      {onRetry ? <View className="items-center"><Button label="Retry" variant="secondary" onPress={onRetry} fullWidth={false} className="px-8" /></View> : null}
     </View>
   );
 }

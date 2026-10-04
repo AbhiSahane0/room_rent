@@ -21,7 +21,7 @@ export function EmptyState({ icon, title, message, actionLabel, actionIcon, onAc
       </View>
       <Text variant="heading" className="text-center">{title}</Text>
       <Text tone="soft" className="mt-1.5 mb-6 text-center">{message}</Text>
-      {actionLabel && onAction ? <Button label={actionLabel} icon={actionIcon} onPress={onAction} fullWidth={false} className="px-6" /> : null}
+      {actionLabel && onAction ? <View className="items-center"><Button label={actionLabel} icon={actionIcon} onPress={onAction} fullWidth={false} className="px-6" /></View> : null}
     </View>
   );
 }

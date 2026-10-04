@@ -1,9 +1,12 @@
 import { Stack } from 'expo-router';
+import { PropertyProvider } from '@/features/properties/PropertyProvider';
 
 export default function AppLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-    </Stack>
+    <PropertyProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+      </Stack>
+    </PropertyProvider>
   );
 }
