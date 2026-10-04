@@ -308,3 +308,23 @@ export interface OutstandingReport {
     dueSoon: { amount: number; count: number };
   };
 }
+
+export interface ElectricityRow {
+  billId: string;
+  billNumber: string;
+  month: string;
+  roomNumber: string;
+  amount: number;
+  /** Readings, units and rate are known only for bills made from a meter reading. */
+  previousReading: number | null;
+  currentReading: number | null;
+  units: number | null;
+  ratePerUnit: number | null;
+  /** The amount was typed in (faulty meter, imported record) rather than calculated. */
+  adjusted: boolean;
+}
+
+export interface TenantElectricity {
+  rows: ElectricityRow[];
+  summary: { months: number; totalAmount: number; averageMonthly: number; totalUnits: number | null; latestRate: number | null; highest: { month: string; amount: number } | null };
+}

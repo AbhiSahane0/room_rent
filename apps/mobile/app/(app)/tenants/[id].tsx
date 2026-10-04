@@ -8,12 +8,13 @@ import { DocumentsSection } from '@/features/documents/DocumentsSection';
 import { PaymentsSection } from '@/features/payments/PaymentsSection';
 import { useTenant } from '@/features/tenants/api';
 import { ChangeRentSheet } from '@/features/tenants/ChangeRentSheet';
+import { ElectricityHistory } from '@/features/tenants/ElectricityHistory';
 import { ElectricitySheet } from '@/features/tenants/ElectricitySheet';
 import { callPhone, openWhatsApp } from '@/features/tenants/contact';
 import { Avatar } from '@/features/tenants/TenantCard';
 import { formatDate, formatINR, formatMonthShort } from '@/utils/format';
 
-const SECTIONS = ['Overview', 'Documents', 'Bills', 'Payments', 'Room History'] as const;
+const SECTIONS = ['Overview', 'Documents', 'Bills', 'Payments', 'Electricity', 'Room History'] as const;
 type Section = (typeof SECTIONS)[number];
 
 export default function TenantProfileScreen() {
@@ -111,6 +112,7 @@ export default function TenantProfileScreen() {
       ) : null}
 
       {section === 'Documents' ? <DocumentsSection tenantId={t.id} /> : null}
+      {section === 'Electricity' ? <ElectricityHistory tenantId={t.id} /> : null}
       {section === 'Payments' ? <PaymentsSection tenantId={t.id} canPay={t.outstanding > 0} /> : null}
       {section === 'Bills' ? <BillsSection tenantId={t.id} canBill={!!t.currentAssignment} /> : null}
 

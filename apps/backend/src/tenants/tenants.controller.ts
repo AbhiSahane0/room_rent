@@ -24,6 +24,11 @@ export class TenantsController {
     return this.service.get(u.userId, id);
   }
 
+  @Get(':id/electricity')
+  electricity(@CurrentUser() u: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.electricity(u.userId, id);
+  }
+
   @Put(':id')
   @ResponseMessage('Tenant updated successfully')
   update(@CurrentUser() u: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateTenantDto) {

@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import type { Paginated, TenantDetail, TenantListItem, TenantStatus } from '@rental/shared';
+import type { Paginated, TenantDetail, TenantElectricity, TenantListItem, TenantStatus } from '@rental/shared';
 
 export interface TenantFilters { propertyId?: string; status?: TenantStatus; search?: string; dues?: 'true' }
 
@@ -64,3 +64,6 @@ export function useChangeElectricity(assignmentId: string) {
     onSuccess: invalidate,
   });
 }
+
+export const useTenantElectricity = (tenantId?: string) =>
+  useQuery({ queryKey: ['tenants', 'electricity', tenantId], enabled: !!tenantId, queryFn: () => api.get<TenantElectricity>(`/tenants/${tenantId}/electricity`) });

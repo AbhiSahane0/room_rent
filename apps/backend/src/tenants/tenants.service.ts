@@ -76,6 +76,44 @@ export class TenantsService {
     return paginate(items, total, q);
   }
 
+  /** Every month's electricity for a tenant, newest first, with readings where they were recorded. */
+  async electricity(userId: string, id: string) {
+    const num = (v: unknown) => (typeof v === 'number' ? v : typeof v === 'string' && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : null);
+    const [, bills] = await Promise.all([
+      this.assertOwned(userId, id),
+      this.prisma.bill.findMany({
+        relationLoadStrategy: 'join',
+        where: { tenantId: id, property: { ownerId: userId }, status: { notIn: ['CANCELLED', 'DRAFT'] }, OR: [{ electricityAmount: { gt: 0 } }, { items: { some: { type: 'ELECTRICITY' } } }] },
+        orderBy: { billingPeriod: 'desc' },
+        select: { id: true, billNumber: true, billingPeriod: true, electricityAmount: true, room: { select: { roomNumber: true } }, items: { where: { type: 'ELECTRICITY' }, select: { meta: true } } },
+      }),
+    ]);
+    const rows = bills.map((b) => {
+      const meta = (b.items[0]?.meta ?? {}) as Record<string, unknown>;
+      const metered = num(meta.currentReading) != null;
+      return {
+        billId: b.id, billNumber: b.billNumber, month: b.billingPeriod, roomNumber: b.room.roomNumber, amount: b.electricityAmount.toNumber(),
+        // Readings and rate are only known for bills made with a meter reading; amounts imported from a spreadsheet have just the total.
+        previousReading: metered ? num(meta.previousReading) : null, currentReading: metered ? num(meta.currentReading) : null,
+        units: metered ? num(meta.units) : null, ratePerUnit: metered ? num(meta.ratePerUnit) : null, adjusted: meta.isOverride === true,
+      };
+    });
+    const total = Math.round(rows.reduce((s, r) => s + r.amount, 0) * 100) / 100;
+    const metered = rows.filter((r) => r.units != null);
+    const peak = rows.reduce<(typeof rows)[number] | null>((m, r) => (!m || r.amount > m.amount ? r : m), null);
+    return {
+      rows,
+      summary: {
+        months: rows.length,
+        totalAmount: total,
+        averageMonthly: rows.length ? Math.round((total / rows.length) * 100) / 100 : 0,
+        totalUnits: metered.length ? Math.round(metered.reduce((s, r) => s + (r.units ?? 0), 0) * 100) / 100 : null,
+        latestRate: metered[0]?.ratePerUnit ?? null,
+        highest: peak ? { month: peak.month, amount: peak.amount } : null,
+      },
+    };
+  }
+
   async get(userId: string, id: string) {
     const [tenant, balances] = await Promise.all([
     this.prisma.tenant.findFirst({

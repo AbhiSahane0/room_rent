@@ -238,4 +238,17 @@ describe('Billing (e2e)', () => {
     expect(next).toMatchObject({ previousBalance: 7000, totalDue: 13000 });
     await owner.post('/room-assignments', { tenantId: t.id, roomId: r, startDate: '2026-07-01', agreedRent: 1, openingBalance: -5 }).expect(400);
   });
+
+  it('lists a tenant\'s electricity history with readings, rate and totals', async () => {
+    const h = (await owner.get(`/tenants/${tenantId}/electricity`).expect(200)).body.data;
+    expect(h.rows.length).toBeGreaterThan(0);
+    const row = h.rows.find((r: { currentReading: number | null }) => r.currentReading === 1350)!;
+    expect(row).toMatchObject({ previousReading: 1200, currentReading: 1350, units: 150, amount: 1200, roomNumber: '101' });
+    expect(row.ratePerUnit).toBe(8);
+    expect(h.summary.months).toBe(h.rows.length);
+    expect(h.summary.totalAmount).toBeCloseTo(h.rows.reduce((s: number, r: { amount: number }) => s + r.amount, 0), 2);
+    expect(h.summary.averageMonthly).toBeCloseTo(h.summary.totalAmount / h.rows.length, 2);
+    expect(h.rows.map((r: { month: string }) => r.month)).toEqual([...h.rows.map((r: { month: string }) => r.month)].sort().reverse()); // newest first
+    await other.get(`/tenants/${tenantId}/electricity`).expect(404);
+  });
 });
