@@ -13,6 +13,11 @@ export function configureApp(app: NestExpressApplication) {
   const origins = config.get('CORS_ORIGINS', { infer: true }).split(',').map((s) => s.trim()).filter(Boolean);
 
   app.use(helmet());
+  // Everything this API returns is private owner data (bills, tenants, document links): never cache it.
+  app.use((_req: unknown, res: { setHeader(k: string, v: string): void }, next: () => void) => {
+    res.setHeader('Cache-Control', 'private, no-store');
+    next();
+  });
   // Native apps send no Origin header and are unaffected by CORS; only listed web origins are allowed.
   app.enableCors({ origin: origins.length ? origins : false, credentials: false });
   app.useGlobalPipes(createValidationPipe());

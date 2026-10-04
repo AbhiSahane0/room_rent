@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, StreamableFile } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthUser, CurrentUser, ResponseMessage } from '../common/decorators';
 import { CancelBillDto, CreateBillDto, ListBillsQuery, PreviewBillDto, RecurringChargeDto } from './bills.dto';
 import { BillsService } from './bills.service';
@@ -28,6 +29,18 @@ export class BillsController {
   @Get('bills/:id')
   get(@CurrentUser() u: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.get(u.userId, id);
+  }
+
+  /** Generated on demand from the stored bill, so the PDF always matches the database. */
+  @Get('bills/:id/pdf')
+  @Throttle({ default: { limit: 40, ttl: 60_000 } })
+  async pdf(@CurrentUser() u: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Query('download') download?: string) {
+    const { buffer, fileName } = await this.service.pdf(u.userId, id);
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: `${download === '1' ? 'attachment' : 'inline'}; filename="${fileName}"`,
+      length: buffer.length,
+    });
   }
 
   @Post('bills/:id/cancel')

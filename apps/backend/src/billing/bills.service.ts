@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { BillItemType, BillStatus, ChargeType, Prisma } from '@prisma/client';
 import { AuditService } from '../common/audit.service';
 import { monthStart, parseDate, todayUtc } from '../common/dates';
@@ -6,6 +6,7 @@ import { OUTSTANDING_BILL_WHERE } from '../common/outstanding';
 import { paginate, skipTake } from '../common/pagination';
 import { PrismaService } from '../common/prisma.service';
 import { PropertiesService } from '../properties/properties.service';
+import { renderBillPdf } from './bill-pdf';
 import { calculateBill, calculateElectricity, fromPaise, rentForPeriod, toPaise } from './bill-calculator';
 import { CreateBillDto, ListBillsQuery, PreviewBillDto, RecurringChargeDto } from './bills.dto';
 
@@ -275,6 +276,28 @@ export class BillsService {
       }),
     ]);
     return paginate(bills.map((b) => this.present(b)), total, q);
+  }
+
+  async pdf(userId: string, id: string) {
+    const bill = await this.get(userId, id);
+    const property = await this.prisma.property.findUniqueOrThrow({ where: { id: bill.property.id }, select: { billFooterNote: true } });
+    try {
+      const buffer = await renderBillPdf({
+        ...bill,
+        status: bill.storedStatus,
+        overdue: bill.status === 'OVERDUE',
+        createdAt: bill.createdAt,
+        items: bill.items.map((i) => ({ type: i.type, description: i.description, amount: money(i.amount), meta: i.meta })),
+        payments: bill.payments.map((p) => ({ paymentDate: p.paymentDate, method: p.method, reference: p.reference, amount: money(p.amount) })),
+        rentAmount: money(bill.rentAmount), electricityAmount: money(bill.electricityAmount), otherChargesAmount: money(bill.otherChargesAmount),
+        lateFee: money(bill.lateFee), discount: money(bill.discount), previousBalance: money(bill.previousBalance), totalDue: money(bill.totalDue), paidAmount: money(bill.paidAmount),
+        property: { ...bill.property, billFooterNote: property.billFooterNote },
+      });
+      await this.audit.log(userId, 'bill.pdf', 'bill', id);
+      return { buffer, fileName: `Invoice-${bill.billNumber}.pdf` };
+    } catch {
+      throw new InternalServerErrorException('The PDF could not be generated. Please try again.');
+    }
   }
 
   async cancel(userId: string, id: string, reason?: string) {
