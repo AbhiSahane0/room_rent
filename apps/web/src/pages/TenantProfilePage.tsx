@@ -97,7 +97,7 @@ export function TenantProfilePage() {
 
       {section === 'Documents' ? <DocumentsSection tenantId={t.id} /> : null}
       {section === 'Payments' ? <PaymentsSection tenantId={t.id} canPay={t.outstanding > 0} /> : null}
-      {section === 'Bills' ? <BillsSection tenantId={t.id} canBill={!!t.currentAssignment || t.roomHistory.length > 0} /> : null}
+      {section === 'Bills' ? <BillsSection tenantId={t.id} canBill={!!t.currentAssignment} /> : null}
 
       {section === 'Room History' ? (
         <div className="mt-4 space-y-3">

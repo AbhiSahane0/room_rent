@@ -57,6 +57,18 @@ API URL from the app: Android emulator `http://10.0.2.2:3000`, iOS simulator `ht
 Without R2 keys, development falls back to storing documents on local disk (`apps/backend/.storage`, git-ignored) behind the
 same signed, expiring links. **Production refuses to start without R2 configured.**
 
+### Electricity rates, bill PDF and dues of tenants who left
+- **Rate per unit is set at three levels**, each prefilled from the one above: the property default (Bill Settings), the room (new rooms start at the property default), and the tenant's stay
+  (starts at the room's rate; change it any time under Tenant > Electricity > Change, optionally also as the room's default). On *Generate Bill* the rate is shown and editable:
+  type another rate for that one bill, or tap *Save as this tenant's rate* to use it from then on. Bills already generated never change.
+- **Bill PDF** (default): a designed one-page A4 bill with the amount due, a plain-language breakdown (meter readings, units x rate, what the previous balance is made of),
+  payments received, a PAID stamp, and a *Scan to pay* UPI QR with the amount filled in (set your UPI ID under Bill Settings; the QR only appears while something is unpaid).
+  `GET /bills/:id/pdf?format=statement` still returns the one-table form from the Excel sheet and `?format=invoice` the plain invoice.
+- **Tenants who moved out keep their dues.** Nothing is written off automatically: the balance stays on their old bills. Home shows *Moved out, still owe* and the Total outstanding split
+  into current and former tenants; the Tenants tab has *Owes money* and *Left with dues* filters; payments can be recorded against old bills any time (Tenant > Payments > Record Payment).
+- **Home KPIs**: collection of the month with its rent/electricity/other make-up, total outstanding (current vs former), overdue, due in 7 days, rent roll, occupancy and the rent lost to vacancy,
+  collected in the last 7 days, tenants still to be billed this month, six-month trend and recent payments.
+
 ### Import an existing Excel register (full history)
 ```bash
 npm run db:import -- /path/to/RENT.xlsx --dry-run     # preview: tenants, rooms, dues, anything odd in the sheet

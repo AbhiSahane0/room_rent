@@ -131,8 +131,12 @@ export async function renderBillPremiumPdf(bill: PdfBill): Promise<Buffer> {
     doc.restore();
     caps('RENT BILL', M, 30, { color: '#99F0E1' });
     text(bill.property.name, M, 44, { font: 'B', size: 21, color: C.white, width: CW * 0.58 });
-    text([bill.property.address, bill.property.city].filter(Boolean).join(', '), M, 74, { size: 8.8, color: C.mint, width: CW * 0.58 });
-    text(`${bill.property.state} - ${bill.property.pincode}`, M, 87, { size: 8.8, color: C.mint, width: CW * 0.58 });
+    // Placeholders from an import ("Address not set yet", pincode 000000, city "-") are not printed.
+    const real = (v: string) => (v && !/^(-|address not set yet)$/i.test(v.trim()) ? v : '');
+    const addr = [real(bill.property.address), real(bill.property.city)].filter(Boolean).join(', ');
+    const area = [real(bill.property.state), bill.property.pincode && bill.property.pincode !== '000000' ? bill.property.pincode : ''].filter(Boolean).join(' - ');
+    if (addr) text(addr, M, 74, { size: 8.8, color: C.mint, width: CW * 0.58 });
+    if (area) text(area, M, 87, { size: 8.8, color: C.mint, width: CW * 0.58 });
     caps('BILLING MONTH', M, 30, { color: '#99F0E1', width: CW, align: 'right' });
     text(monthLabel(bill.billingPeriod), M, 43, { font: 'B', size: 21, color: C.white, width: CW, align: 'right' });
     const st = bill.status === 'CANCELLED' ? { label: 'CANCELLED', tone: 'muted' as Tone } : bill.balance <= 0 ? { label: 'PAID', tone: 'success' as Tone } : state.tone === 'danger' ? { label: 'OVERDUE', tone: 'danger' as Tone } : bill.paidAmount > 0 ? { label: 'PARTIALLY PAID', tone: 'warning' as Tone } : { label: 'UNPAID', tone: 'warning' as Tone };
