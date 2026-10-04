@@ -5,6 +5,7 @@ import { View } from 'react-native';
 import { friendlyError } from '@/api/client';
 import { Button, Card, ConfirmDialog, ErrorState, Header, Icon, Screen, SectionHeader, SkeletonList, Text } from '@/components/ui';
 import { useBill, useCancelBill } from '@/features/bills/api';
+import { BillActions } from '@/features/bills/BillActions';
 import { BillStatusBadge } from '@/features/bills/BillCard';
 import { METHOD_LABEL } from '@/features/payments/constants';
 import { formatDate, formatINR, formatMonth } from '@/utils/format';
@@ -79,8 +80,15 @@ export default function BillDetailScreen() {
         </View>
       </Card>
 
+      {!cancelled ? (
+        <>
+          <SectionHeader title={created === '1' ? 'Share this bill' : 'Invoice'} />
+          <BillActions billId={bill.id} billNumber={bill.billNumber} />
+        </>
+      ) : null}
+
       {canPay ? (
-        <View className="mt-4"><Button label="Record Payment" icon={Banknote} onPress={() => router.push({ pathname: '/payments/new', params: { billId: bill.id } })} /></View>
+        <View className="mt-4"><Button label="Record Payment" icon={Banknote} variant={created === '1' ? 'secondary' : 'primary'} onPress={() => router.push({ pathname: '/payments/new', params: { billId: bill.id } })} /></View>
       ) : null}
 
       {bill.payments.length > 0 ? (
