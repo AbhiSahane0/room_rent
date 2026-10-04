@@ -1,11 +1,12 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CircleCheck, Link2 } from 'lucide-react-native';
+import { Banknote, CircleCheck, Link2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { friendlyError } from '@/api/client';
 import { Button, Card, ConfirmDialog, ErrorState, Header, Icon, Screen, SectionHeader, SkeletonList, Text } from '@/components/ui';
 import { useBill, useCancelBill } from '@/features/bills/api';
 import { BillStatusBadge } from '@/features/bills/BillCard';
+import { METHOD_LABEL } from '@/features/payments/constants';
 import { formatDate, formatINR, formatMonth } from '@/utils/format';
 import type { BillItemRow } from '@/types/api';
 
@@ -15,7 +16,7 @@ function itemLabel(i: BillItemRow) {
 
 export default function BillDetailScreen() {
   const router = useRouter();
-  const { id, created } = useLocalSearchParams<{ id: string; created?: string }>();
+  const { id, created, paid } = useLocalSearchParams<{ id: string; created?: string; paid?: string }>();
   const { data: bill, isLoading, isError, error, refetch, isRefetching } = useBill(id);
   const cancel = useCancelBill(id);
   const [confirming, setConfirming] = useState(false);
@@ -26,6 +27,7 @@ export default function BillDetailScreen() {
 
   const cancelled = bill.status === 'CANCELLED';
   const canCancel = !cancelled && bill.paidAmount === 0 && !bill.carriedInto;
+  const canPay = !cancelled && !bill.carriedInto && bill.balance > 0;
 
   return (
     <Screen refreshing={isRefetching} onRefresh={refetch} edges={['top']}>
@@ -37,6 +39,16 @@ export default function BillDetailScreen() {
           <View className="flex-1">
             <Text variant="heading" tone="success">Bill Generated</Text>
             <Text variant="secondary" tone="success">The totals were calculated and verified by the server.</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {paid === '1' ? (
+        <View className="mb-3 flex-row items-center gap-3 rounded-lg bg-success-soft p-4">
+          <Icon icon={CircleCheck} size="lg" tone="success" />
+          <View className="flex-1">
+            <Text variant="heading" tone="success">Payment recorded</Text>
+            <Text variant="secondary" tone="success">{bill.balance > 0 ? `${formatINR(bill.balance)} still pending on this bill.` : 'This bill is now fully paid.'}</Text>
           </View>
         </View>
       ) : null}
@@ -66,6 +78,27 @@ export default function BillDetailScreen() {
           <View className="flex-row items-center justify-between"><Text tone="soft">Balance</Text><Text variant="heading" tone={bill.balance > 0 && !bill.carriedInto ? 'danger' : 'ink'}>{formatINR(bill.balance)}</Text></View>
         </View>
       </Card>
+
+      {canPay ? (
+        <View className="mt-4"><Button label="Record Payment" icon={Banknote} onPress={() => router.push({ pathname: '/payments/new', params: { billId: bill.id } })} /></View>
+      ) : null}
+
+      {bill.payments.length > 0 ? (
+        <>
+          <SectionHeader title="Payments" />
+          <Card padded={false}>
+            {bill.payments.map((p, i) => (
+              <View key={p.id} className={`flex-row items-center justify-between px-4 py-3 ${i < bill.payments.length - 1 ? 'border-b border-line' : ''}`}>
+                <View className="flex-1 pr-3">
+                  <Text variant="bodyMedium">{METHOD_LABEL[p.method]}</Text>
+                  <Text variant="secondary" tone="soft">{formatDate(p.paymentDate)}{p.reference ? ` · ${p.reference}` : ''}</Text>
+                </View>
+                <Text variant="heading" tone="success">{formatINR(p.amount)}</Text>
+              </View>
+            ))}
+          </Card>
+        </>
+      ) : null}
 
       {bill.carriedInto ? (
         <LinkCard onPress={() => router.push({ pathname: '/bills/[id]', params: { id: bill.carriedInto!.id } })} label={`Balance carried forward to ${bill.carriedInto.billNumber}`} />

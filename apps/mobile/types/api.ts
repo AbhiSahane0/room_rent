@@ -193,3 +193,27 @@ export interface BillPreview {
   carriedBills: { id: string; billNumber: string; balance: number }[];
   recurringCharges: { id: string; type: ChargeType; name: string; amount: number }[];
 }
+
+export interface PaymentListItem {
+  id: string;
+  billId: string;
+  amount: number;
+  paymentDate: string;
+  method: PaymentMethod;
+  reference: string | null;
+  notes: string | null;
+  tenant: { id: string; fullName: string };
+  bill: { id: string; billNumber: string; billingPeriod: string; room: { roomNumber: string } };
+}
+
+export interface OpenBill {
+  id: string;
+  billNumber: string;
+  billingPeriod: string;
+  dueDate: string;
+  status: BillStatus;
+  totalDue: number;
+  paidAmount: number;
+  balance: number;
+  label: string;
+}

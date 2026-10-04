@@ -33,7 +33,7 @@ export default function MoreScreen() {
     <Screen>
       <Text variant="title" className="pb-4 pt-4">More</Text>
       <Card padded={false}>
-        <Row icon={Banknote} label="Payments" onPress={soon} />
+        <Row icon={Banknote} label="Payments" onPress={() => router.push('/payments')} />
         <Row icon={ChartColumn} label="Reports" onPress={soon} />
         <Row icon={MapPin} label="Properties" onPress={() => router.push('/properties')} />
         <Row icon={Settings} label="Settings" onPress={soon} />
