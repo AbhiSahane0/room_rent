@@ -133,7 +133,9 @@ makes deep links work and `public/_headers` adds security headers. Then:
 2. On the **backend**, set `CORS_ORIGINS=https://your-web-domain` (comma-separated for several) and `TRUST_PROXY=1`.
 3. Serve both over HTTPS (required for camera access, installing to the home screen and secure cookies/headers).
 
-**iPhone:** open the site in Safari, tap Share, then *Add to Home Screen*. It opens full screen with its own icon like an app.
+**Vercel instead:** import the repo, leave the Root Directory as the repo root (`vercel.json` supplies the build command, output folder, deep-link rewrite and security headers), set `EXPO_PUBLIC_API_URL`, and replace `https://api.example.com` in `vercel.json`'s `connect-src`.
+
+**iPhone:** there is no APK equivalent on iOS (TestFlight and sideloading need a paid Apple Developer account, about $99/year). Open the site in Safari, tap Share, then *Add to Home Screen*. It opens full screen with its own icon like an app.
 **Android/desktop Chrome:** use the install icon in the address bar. Camera capture, file upload, PDF view/download and Share work in the browser
 (iPhone Safari offers the native share sheet for the PDF; desktop browsers download it instead).
 
