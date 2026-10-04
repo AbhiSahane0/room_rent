@@ -17,6 +17,7 @@ import { StorageModule } from './storage/storage.module';
 import { DocumentsModule } from './documents/documents.module';
 import { BillingModule } from './billing/billing.module';
 import { PaymentsModule } from './payments/payments.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Controller('health')
 class HealthController {
@@ -43,6 +44,7 @@ class HealthController {
     DocumentsModule,
     BillingModule,
     PaymentsModule,
+    ReportsModule,
   ],
   controllers: [HealthController],
   providers: [
