@@ -190,18 +190,28 @@ export async function renderBillPremiumPdf(bill: PdfBill): Promise<Buffer> {
 
     // ---------- Breakdown ----------
     y += 84 + 18;
-    let lines = breakdownLines(bill);
+    const all = breakdownLines(bill);
+    const prevLine = all.find((l) => l.label === 'Previous balance');
+    let charges = all.filter((l) => l !== prevLine);
+    const extraRows = 1 + (prevLine ? 1 : 0); // the "This month's charges" subtotal and the previous balance
     const summaryH = 138;
     const footerTop = PH - 54;
     // Everything must fit on the page: first the lines get their minimum height, payments use what is left, and any overflow is folded away.
     const available = footerTop - y - 16 - 24 - (14 + summaryH + 14);
     const MIN_ROW = 21;
-    const maxLines = Math.max(3, Math.floor(available / MIN_ROW));
-    if (lines.length > maxLines) {
-      const keep = lines.slice(0, maxLines - 1);
-      const rest = lines.slice(maxLines - 1);
-      lines = [...keep, { label: `${rest.length} more items`, detail: 'Combined to fit the page', amount: Math.round(rest.reduce((n, l) => n + l.amount, 0) * 100) / 100 }];
+    const maxLines = Math.max(3, Math.floor(available / MIN_ROW) - extraRows);
+    if (charges.length > maxLines) {
+      const keep = charges.slice(0, maxLines - 1);
+      const rest = charges.slice(maxLines - 1);
+      charges = [...keep, { label: `${rest.length} more items`, detail: 'Combined to fit the page', amount: Math.round(rest.reduce((n, l) => n + l.amount, 0) * 100) / 100 }];
     }
+    const monthTotal = Math.round(charges.reduce((n, l) => n + l.amount, 0) * 100) / 100;
+    // Charges, then the month's subtotal, then what is carried in: the reader can follow how the total is made.
+    const lines: (Line & { subtotal?: boolean })[] = [
+      ...charges,
+      { label: "This month's charges", detail: 'Rent, electricity and other charges for this month', amount: monthTotal, subtotal: true },
+      ...(prevLine ? [prevLine] : []),
+    ];
     const leftover = available - lines.length * MIN_ROW;
     const fit = bill.payments.length ? Math.max(0, Math.min(6, bill.payments.length, Math.floor((leftover - 34 - 16) / 21))) : 0;
     const payments = bill.payments.slice(0, fit);
@@ -219,12 +229,15 @@ export async function renderBillPremiumPdf(bill: PdfBill): Promise<Buffer> {
     caps('AMOUNT', M + CW - 114, y + 8.5, { width: 100, align: 'right' });
     y += 24;
     lines.forEach((l, i) => {
-      if (i % 2 === 1) doc.rect(M, y, CW, rowH).fill(C.zebra);
-      const colour = l.tone === 'danger' ? C.danger : l.tone === 'success' ? C.success : C.ink;
-      text(l.label, M + 14, y + (showDetail && l.detail ? 5.5 : (rowH - 11) / 2), { font: 'S', size: 10.4, color: colour, width: CW - 150 });
+      if (l.subtotal) {
+        doc.rect(M, y, CW, rowH).fill('#E3F1EE');
+        doc.moveTo(M, y).lineTo(M + CW, y).lineWidth(0.8).stroke('#B9DAD3');
+      } else if (i % 2 === 1) doc.rect(M, y, CW, rowH).fill(C.zebra);
+      const colour = l.tone === 'danger' ? C.danger : l.tone === 'success' ? C.success : l.subtotal ? C.deep : C.ink;
+      text(l.label, M + 14, y + (showDetail && l.detail ? 5.5 : (rowH - 11) / 2), { font: l.subtotal ? 'B' : 'S', size: 10.4, color: colour, width: CW - 150 });
       if (showDetail && l.detail) text(l.detail, M + 14, y + 18.5, { size: 8.4, color: C.muted, width: CW - 150 });
       else if (l.detail) text(l.detail, M + 170, y + (rowH - 9) / 2 + 0.5, { size: 8.4, color: C.muted, width: CW - 300 });
-      text(signed(l.amount), M + CW - 124, y + (rowH - 11) / 2, { font: 'S', size: 10.6, color: colour, width: 110, align: 'right' });
+      text(signed(l.amount), M + CW - 124, y + (rowH - 11) / 2, { font: l.subtotal ? 'B' : 'S', size: 10.6, color: colour, width: 110, align: 'right' });
       y += rowH;
     });
     doc.moveTo(M, y).lineTo(M + CW, y).lineWidth(0.8).stroke(C.line);
@@ -251,24 +264,18 @@ export async function renderBillPremiumPdf(bill: PdfBill): Promise<Buffer> {
       doc.font('R').fontSize(9.6).fillColor(C.soft).text(noteText, M + 16, y + 34, { width: leftW - 32, height: 70, ellipsis: true, lineGap: 2 });
       text(paidUp ? 'Thank you' : `Due ${formatDate(bill.dueDate)}`, M + 16, y + summaryH - 26, { font: 'S', size: 9.4, color: C.primary, width: leftW - 32 });
     }
-    const subtotal = lines.filter((l) => l.label !== 'Previous balance').reduce((s, l) => s + l.amount, 0);
-    const prev = lines.filter((l) => l.label === 'Previous balance').reduce((s, l) => s + l.amount, 0);
-    let ty = y + 4;
+    let ty = y + 28;
     const sum = (label: string, value: string, o: { color?: string; font?: 'R' | 'S' | 'B'; size?: number } = {}) => {
       text(label, tx, ty, { size: 9.6, color: o.color ?? C.soft, width: 130 });
       text(value, tx + 120, ty - (o.size && o.size > 10 ? 1.5 : 0), { font: o.font ?? 'S', size: o.size ?? 10, color: o.color ?? C.ink, width: 142, align: 'right' });
       ty += 20;
     };
-    sum("This month's charges", signed(Math.round(subtotal * 100) / 100));
-    if (prev > 0) sum('Previous balance', formatINR(prev), { color: C.danger });
-    doc.moveTo(tx, ty - 3).lineTo(tx + 262, ty - 3).lineWidth(0.6).stroke(C.line);
-    ty += 3;
     sum('Total amount', formatINR(bill.totalDue), { font: 'B', size: 12.5 });
     sum('Paid', bill.paidAmount > 0 ? `-${formatINR(bill.paidAmount)}` : formatINR(0), { color: C.success });
     const bt = TONE[bill.balance <= 0 ? 'success' : state.tone];
     box(tx - 8, ty - 2, 270, 30, 8, bt.bg, bt.line);
     text(bill.balance <= 0 ? 'Settled' : 'Balance due', tx + 4, ty + 8.5, { font: 'B', size: 10.6, color: bt.fg, width: 120 });
-    text(formatINR(bill.balance), tx + 120, ty + 6.5, { font: 'B', size: 14, color: bt.fg, width: 142, align: 'right' });
+    text(formatINR(bill.balance), tx + 108, ty + 6.5, { font: 'B', size: 14, color: bt.fg, width: 142, align: 'right' });
     y += summaryH + 14;
 
     // ---------- Payments received ----------

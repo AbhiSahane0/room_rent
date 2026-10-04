@@ -185,7 +185,7 @@ describe('Bill PDF', () => {
       const parsed = await pdfParse(withQr);
       expect(parsed.numpages).toBe(1);
       const text = parsed.text.replace(/\s+/g, ' ');
-      for (const t of ['My Property', 'Rajkumar Darsimbe', 'ROOM 1', 'September 2026', 'BALANCE DUE', '₹8,112', 'Monthly rent', 'Meter 4304 to 4380', 'Previous balance', 'SCAN TO PAY', 'rent@okaxis', 'UNPAID']) expect(text).toContain(t);
+      for (const t of ['My Property', 'Rajkumar Darsimbe', 'ROOM 1', 'September 2026', 'BALANCE DUE', '₹8,112', 'Monthly rent', "This month's charges", '₹7,112', 'Meter 4304 to 4380', 'Previous balance', 'SCAN TO PAY', 'rent@okaxis', 'UNPAID']) expect(text).toContain(t);
       expect(withQr.toString('latin1')).toContain('/Subtype /Image');
 
       const paid = await renderBillPremiumPdf(bill({ balance: 0, paidAmount: 8112, status: 'PAID', payments: [{ paymentDate: new Date('2026-09-05'), method: 'UPI', reference: 'UTR1', amount: 8112 }] }));
