@@ -21,6 +21,7 @@ export class PropertiesService {
 
   async list(userId: string) {
     const properties = await this.prisma.property.findMany({
+      relationLoadStrategy: 'join',
       where: { ownerId: userId, isActive: true },
       orderBy: { createdAt: 'asc' },
       include: { rooms: { select: { status: true } } },

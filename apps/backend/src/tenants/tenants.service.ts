@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { AuditService } from '../common/audit.service';
 import { parseDate } from '../common/dates';
-import { outstandingByTenant } from '../common/outstanding';
+import { outstandingByProperties, outstandingByTenant } from '../common/outstanding';
 import { paginate, skipTake } from '../common/pagination';
 import { PrismaService } from '../common/prisma.service';
 import { PropertiesService } from '../properties/properties.service';
@@ -31,7 +31,8 @@ export class TenantsService {
   }
 
   async list(userId: string, q: ListTenantsQuery) {
-    const propertyIds = q.propertyId ? [(await this.properties.assertOwned(userId, q.propertyId)).id] : await this.properties.ownedIds(userId);
+    // Ownership is checked in parallel with the data queries (the response is discarded with a 404 if it fails).
+    const propertyIds = q.propertyId ? [q.propertyId] : await this.properties.ownedIds(userId);
     const search = q.search?.trim();
     const where: Prisma.TenantWhereInput = {
       propertyId: { in: propertyIds },
@@ -48,16 +49,18 @@ export class TenantsService {
           }
         : {}),
     };
-    const [total, tenants] = await Promise.all([
+    const [, total, tenants, balances] = await Promise.all([
+      q.propertyId ? this.properties.assertOwned(userId, q.propertyId) : null,
       this.prisma.tenant.count({ where }),
       this.prisma.tenant.findMany({
+        relationLoadStrategy: 'join',
         where,
         orderBy: [{ status: 'asc' }, { fullName: 'asc' }],
         ...skipTake(q),
         include: { assignments: currentAssignmentInclude },
       }),
+      outstandingByProperties(this.prisma, propertyIds),
     ]);
-    const balances = await outstandingByTenant(this.prisma, tenants.map((t) => t.id));
     const items = tenants.map(({ assignments, ...t }) => {
       const a = assignments[0];
       return {
@@ -72,9 +75,10 @@ export class TenantsService {
   }
 
   async get(userId: string, id: string) {
-    await this.assertOwned(userId, id);
-    const tenant = await this.prisma.tenant.findUniqueOrThrow({
-      where: { id },
+    const [tenant, balances] = await Promise.all([
+    this.prisma.tenant.findFirst({
+      relationLoadStrategy: 'join',
+      where: { id, deletedAt: null, property: { ownerId: userId } },
       include: {
         property: { select: { id: true, name: true } },
         assignments: {
@@ -83,10 +87,13 @@ export class TenantsService {
         },
         documents: { where: { deletedAt: null }, select: { id: true, type: true } },
       },
-    });
+    }),
+    outstandingByTenant(this.prisma, [id]),
+    ]);
+    if (!tenant) throw new NotFoundException('Tenant not found');
     const { assignments, documents, ...rest } = tenant;
     const active = assignments.find((a) => a.status === 'ACTIVE') ?? null;
-    const balance = (await outstandingByTenant(this.prisma, [id])).get(id) ?? 0;
+    const balance = balances.get(id) ?? 0;
     return {
       ...rest,
       currentAssignment: active && {

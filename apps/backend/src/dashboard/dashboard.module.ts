@@ -19,12 +19,9 @@ export class DashboardService {
     const selected = properties.find((p) => p.id === q.propertyId) ?? properties[0] ?? null;
     if (!selected) return { username: user.username, properties, property: null, collection: null, occupancy: null, pendingPayments: [] };
 
-    const scope = { propertyId: selected.id };
-    const [collection, occupancy, outstanding] = await Promise.all([
-      this.reports.collection(user.userId, { ...scope, month: q.month }),
-      this.reports.occupancy(user.userId, scope),
-      this.reports.outstanding(user.userId, scope),
-    ]);
+    // `selected` comes from the user's own property list above, so the ownership re-check inside each report is skipped.
+    const ids = [selected.id];
+    const [collection, occupancy, outstanding] = await Promise.all([this.reports.collectionFor(ids, q.month), this.reports.occupancyFor(ids), this.reports.outstandingFor(ids)]);
     const { month, monthLabel, expected, collected, paymentCount, pending, collectionRate } = collection;
     return {
       username: user.username,

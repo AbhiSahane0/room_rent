@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, RoomStatus } from '@prisma/client';
 import { AuditService } from '../common/audit.service';
-import { outstandingByTenant } from '../common/outstanding';
+import { outstandingByProperties, outstandingByTenant } from '../common/outstanding';
 import { paginate, skipTake } from '../common/pagination';
 import { PrismaService } from '../common/prisma.service';
 import { PropertiesService } from '../properties/properties.service';
@@ -28,7 +28,8 @@ export class RoomsService {
   }
 
   async list(userId: string, q: ListRoomsQuery) {
-    const propertyIds = q.propertyId ? [(await this.properties.assertOwned(userId, q.propertyId)).id] : await this.properties.ownedIds(userId);
+    // Ownership is checked in parallel with the data queries: the response is discarded (404) if it fails, and one network round trip is saved.
+    const propertyIds = q.propertyId ? [q.propertyId] : await this.properties.ownedIds(userId);
     const search = q.search?.trim();
     const where: Prisma.RoomWhereInput = {
       propertyId: { in: propertyIds },
@@ -43,16 +44,18 @@ export class RoomsService {
           }
         : {}),
     };
-    const [total, rooms] = await Promise.all([
+    const [, total, rooms, balances] = await Promise.all([
+      q.propertyId ? this.properties.assertOwned(userId, q.propertyId) : null,
       this.prisma.room.count({ where }),
       this.prisma.room.findMany({
+        relationLoadStrategy: 'join',
         where,
         orderBy: [{ roomNumber: 'asc' }],
         ...skipTake(q),
         include: { assignments: activeAssignment },
       }),
+      outstandingByProperties(this.prisma, propertyIds),
     ]);
-    const balances = await outstandingByTenant(this.prisma, rooms.flatMap((r) => r.assignments.map((a) => a.tenantId)));
     return paginate(rooms.map((r) => this.toListItem(r, balances)), total, q);
   }
 
@@ -68,14 +71,15 @@ export class RoomsService {
   }
 
   async get(userId: string, id: string) {
-    await this.roomForUser(userId, id);
-    const room = await this.prisma.room.findUniqueOrThrow({
-      where: { id },
+    const room = await this.prisma.room.findFirst({
+      relationLoadStrategy: 'join',
+      where: { id, property: { ownerId: userId } },
       include: {
         property: { select: { id: true, name: true } },
         assignments: { orderBy: { startDate: 'desc' }, include: { tenant: { select: { id: true, fullName: true, phone: true } } } },
       },
     });
+    if (!room) throw new NotFoundException('Room not found');
     const active = room.assignments.find((a) => a.status === 'ACTIVE');
     const balances = await outstandingByTenant(this.prisma, active ? [active.tenantId] : []);
     const { assignments, ...rest } = room;

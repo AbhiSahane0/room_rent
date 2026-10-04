@@ -229,9 +229,10 @@ export class BillsService {
   }
 
   async get(userId: string, id: string) {
-    await this.ownedBill(userId, id);
-    const bill = await this.prisma.bill.findUniqueOrThrow({
-      where: { id },
+    const [bill, absorbed] = await Promise.all([
+    this.prisma.bill.findFirst({
+      relationLoadStrategy: 'join',
+      where: { id, property: { ownerId: userId } },
       include: {
         items: { orderBy: { sortOrder: 'asc' } },
         tenant: { select: { id: true, fullName: true, phone: true } },
@@ -239,9 +240,11 @@ export class BillsService {
         property: { select: { id: true, name: true, address: true, city: true, state: true, pincode: true } },
         payments: { orderBy: [{ paymentDate: 'desc' }, { createdAt: 'desc' }] },
       },
-    });
+    }),
+    this.prisma.bill.findMany({ where: { carriedForwardToId: id, property: { ownerId: userId } }, select: { id: true, billNumber: true, billingPeriod: true } }),
+    ]);
+    if (!bill) throw new NotFoundException('Bill not found');
     const carriedInto = bill.carriedForwardToId ? await this.prisma.bill.findUnique({ where: { id: bill.carriedForwardToId }, select: { id: true, billNumber: true } }) : null;
-    const absorbed = await this.prisma.bill.findMany({ where: { carriedForwardToId: id }, select: { id: true, billNumber: true, billingPeriod: true } });
     return this.present({ ...bill, carriedInto, absorbed });
   }
 
@@ -252,7 +255,7 @@ export class BillsService {
   }
 
   async list(userId: string, q: ListBillsQuery) {
-    const propertyIds = q.propertyId ? [(await this.properties.assertOwned(userId, q.propertyId)).id] : await this.properties.ownedIds(userId);
+    const propertyIds = q.propertyId ? [q.propertyId] : await this.properties.ownedIds(userId);
     const search = q.search?.trim();
     const today = todayUtc();
     const where: Prisma.BillWhereInput = {
@@ -270,9 +273,11 @@ export class BillsService {
         ? { OR: [{ billNumber: { contains: search, mode: 'insensitive' } }, { tenant: { fullName: { contains: search, mode: 'insensitive' } } }, { room: { roomNumber: { contains: search, mode: 'insensitive' } } }] }
         : {}),
     };
-    const [total, bills] = await Promise.all([
+    const [, total, bills] = await Promise.all([
+      q.propertyId ? this.properties.assertOwned(userId, q.propertyId) : null,
       this.prisma.bill.count({ where }),
       this.prisma.bill.findMany({
+        relationLoadStrategy: 'join',
         where,
         orderBy: [{ billingPeriod: 'desc' }, { createdAt: 'desc' }],
         ...skipTake(q),

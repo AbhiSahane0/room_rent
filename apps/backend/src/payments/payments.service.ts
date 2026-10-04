@@ -92,7 +92,7 @@ export class PaymentsService {
   }
 
   async list(userId: string, q: ListPaymentsQuery) {
-    const propertyIds = q.propertyId ? [(await this.properties.assertOwned(userId, q.propertyId)).id] : await this.properties.ownedIds(userId);
+    const propertyIds = q.propertyId ? [q.propertyId] : await this.properties.ownedIds(userId);
     const search = q.search?.trim();
     const where: Prisma.PaymentWhereInput = {
       bill: { propertyId: { in: propertyIds } },
@@ -101,10 +101,12 @@ export class PaymentsService {
       ...(q.from || q.to ? { paymentDate: { ...(q.from ? { gte: parseDate(q.from, 'From date') } : {}), ...(q.to ? { lte: parseDate(q.to, 'To date') } : {}) } } : {}),
       ...(search ? { OR: [{ tenant: { fullName: { contains: search, mode: 'insensitive' } } }, { reference: { contains: search, mode: 'insensitive' } }, { bill: { billNumber: { contains: search, mode: 'insensitive' } } }] } : {}),
     };
-    const [total, agg, payments] = await Promise.all([
+    const [, total, agg, payments] = await Promise.all([
+      q.propertyId ? this.properties.assertOwned(userId, q.propertyId) : null,
       this.prisma.payment.count({ where }),
       this.prisma.payment.aggregate({ where, _sum: { amount: true } }),
       this.prisma.payment.findMany({
+        relationLoadStrategy: 'join',
         where,
         orderBy: [{ paymentDate: 'desc' }, { createdAt: 'desc' }],
         ...skipTake(q),

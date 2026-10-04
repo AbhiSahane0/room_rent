@@ -15,10 +15,11 @@ const QUICK = [
 ];
 
 export function HomePage() {
-  const { current, isLoading: loadingProps, isError: propsError, error: propsErr, refetch } = useProperty();
-  const q = useDashboard(current?.id);
+  const { current, rememberedId, isLoading: loadingProps, isError: propsError, error: propsErr, refetch } = useProperty();
+  // Starts straight away with the remembered property (the API falls back to the first one if it is gone), instead of waiting for the property list.
+  const q = useDashboard(current?.id ?? rememberedId ?? undefined);
   const d = q.data;
-  const loading = loadingProps || (!!current && q.isLoading);
+  const loading = (loadingProps && !q.data) || ((!!current || !!rememberedId) && q.isLoading);
 
   const collection = d?.collection && (
     <Link to="/reports" className="block rounded-xl bg-primary p-5 text-white transition-colors hover:bg-primary-dark">
@@ -76,7 +77,7 @@ export function HomePage() {
     <Page wide>
       <div className="pb-3"><h1 className="text-title">{greeting()}, {ownerName(d?.username)}</h1><PropertySwitcher /></div>
       {loading ? <SkeletonList count={3} /> : propsError || q.isError ? <ErrorState error={propsErr ?? q.error} onRetry={() => { refetch(); void q.refetch(); }} />
-        : !current ? <EmptyState icon={Building2} title="Add your first property" message="Create a property to start adding rooms, tenants and bills." action={<LinkButton to="/properties/new" icon={Plus} full={false} className="px-6">Add Property</LinkButton>} />
+        : !current && !loadingProps ? <EmptyState icon={Building2} title="Add your first property" message="Create a property to start adding rooms, tenants and bills." action={<LinkButton to="/properties/new" icon={Plus} full={false} className="px-6">Add Property</LinkButton>} />
         : d?.collection && d.occupancy ? (
           <div className="grid items-start gap-x-6 md:grid-cols-2">
             <div>{collection}{rooms}</div>

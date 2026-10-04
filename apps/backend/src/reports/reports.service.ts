@@ -33,15 +33,19 @@ export class ReportsService {
   private async defaultMonth(propertyIds: string[]) {
     const now = currentMonth();
     const live = { propertyId: { in: propertyIds }, status: { notIn: ['CANCELLED' as const, 'DRAFT' as const] } };
-    if (await this.prisma.bill.findFirst({ where: { ...live, billingPeriod: bounds(now).start }, select: { id: true } })) return now;
-    const latest = await this.prisma.bill.findFirst({ where: { ...live, billingPeriod: { lte: bounds(shift(now, 1)).start } }, orderBy: { billingPeriod: 'desc' }, select: { billingPeriod: true } });
+    // One query: the latest billed month up to (and including) the current one; the current month wins when it has bills.
+    const latest = await this.prisma.bill.findFirst({ where: { ...live, billingPeriod: { lte: bounds(now).start } }, orderBy: { billingPeriod: 'desc' }, select: { billingPeriod: true } });
     return latest ? ymOf(latest.billingPeriod) : now;
   }
 
   /** What was billed for the month, what came in during it, and what is still owed right now. */
   async collection(userId: string, q: { propertyId?: string; month?: string }) {
-    const propertyIds = await this.scope(userId, q.propertyId);
-    const month = q.month ?? (await this.defaultMonth(propertyIds));
+    return this.collectionFor(await this.scope(userId, q.propertyId), q.month);
+  }
+
+  /** Same as `collection` for property ids the caller has already verified as the user's own. */
+  async collectionFor(propertyIds: string[], requestedMonth?: string) {
+    const month = requestedMonth ?? (await this.defaultMonth(propertyIds));
     const { start, end } = bounds(month);
 
     const [billed, collected, byMethod, outstanding, trend] = await Promise.all([
@@ -92,8 +96,12 @@ export class ReportsService {
 
   private async openBills(propertyIds: string[]) {
     const bills = await this.prisma.bill.findMany({
+      relationLoadStrategy: 'join',
       where: { propertyId: { in: propertyIds }, ...OUTSTANDING_BILL_WHERE },
-      select: { id: true, tenantId: true, billNumber: true, dueDate: true, totalDue: true, paidAmount: true, roomId: true, status: true },
+      select: {
+        id: true, tenantId: true, billNumber: true, dueDate: true, totalDue: true, paidAmount: true, roomId: true, status: true,
+        tenant: { select: { id: true, fullName: true, phone: true, status: true } }, room: { select: { roomNumber: true } },
+      },
     });
     return bills.map((b) => ({ ...b, balance: fromPaise(toPaise(num(b.totalDue)) - toPaise(num(b.paidAmount))) })).filter((b) => b.balance > 0);
   }
@@ -104,10 +112,13 @@ export class ReportsService {
   }
 
   async outstanding(userId: string, q: { propertyId?: string }) {
-    const propertyIds = await this.scope(userId, q.propertyId);
+    return this.outstandingFor(await this.scope(userId, q.propertyId));
+  }
+
+  async outstandingFor(propertyIds: string[]) {
     const open = await this.openBills(propertyIds);
     const today = todayUtc();
-    const byTenant = new Map<string, { balance: number; oldestDue: Date; billCount: number; billId: string; roomId: string }>();
+    const byTenant = new Map<string, { balance: number; oldestDue: Date; billCount: number; billId: string; roomId: string; tenant: (typeof open)[number]['tenant']; roomNumber: string }>();
     for (const b of open) {
       const cur = byTenant.get(b.tenantId);
       byTenant.set(b.tenantId, {
@@ -116,17 +127,17 @@ export class ReportsService {
         billCount: (cur?.billCount ?? 0) + 1,
         billId: b.id,
         roomId: b.roomId,
+        tenant: b.tenant,
+        roomNumber: b.room.roomNumber,
       });
     }
-    const tenants = await this.prisma.tenant.findMany({ where: { id: { in: [...byTenant.keys()] } }, select: { id: true, fullName: true, phone: true, status: true } });
-    const rooms = await this.prisma.room.findMany({ where: { id: { in: [...byTenant.values()].map((v) => v.roomId) } }, select: { id: true, roomNumber: true } });
-    const items = tenants
-      .map((t) => {
-        const v = byTenant.get(t.id)!;
+    const items = [...byTenant.values()]
+      .map((v) => {
+        const t = v.tenant;
         const overdueDays = Math.max(0, Math.floor((today.getTime() - v.oldestDue.getTime()) / MS_DAY));
         return {
           tenantId: t.id, fullName: t.fullName, phone: t.phone, tenantStatus: t.status,
-          roomNumber: rooms.find((r) => r.id === v.roomId)?.roomNumber ?? '-',
+          roomNumber: v.roomNumber ?? '-',
           balance: v.balance, billId: v.billId, billCount: v.billCount, dueDate: v.oldestDue, overdueDays,
         };
       })
@@ -135,7 +146,10 @@ export class ReportsService {
   }
 
   async occupancy(userId: string, q: { propertyId?: string }) {
-    const propertyIds = await this.scope(userId, q.propertyId);
+    return this.occupancyFor(await this.scope(userId, q.propertyId));
+  }
+
+  async occupancyFor(propertyIds: string[]) {
     const rooms = await this.prisma.room.findMany({ where: { propertyId: { in: propertyIds } }, select: { id: true, roomNumber: true, status: true, defaultRent: true }, orderBy: { roomNumber: 'asc' } });
     const count = (s: string) => rooms.filter((r) => r.status === s).length;
     const occupied = count('OCCUPIED');

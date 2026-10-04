@@ -30,9 +30,17 @@ const safeEqual = (a: string, b: string) => {
   return ba.length === bb.length && timingSafeEqual(ba, bb);
 };
 
+const AUTH_CACHE_MS = 15_000;
+
 @Injectable()
 export class AuthService {
   private dummyHash: Promise<string>;
+  /**
+   * Access-token checks hit the database (session + user) on every request, which costs a network round trip each time.
+   * Valid results are remembered for a few seconds; every revoke path below evicts them immediately, so logout and
+   * password changes take effect at once on this server. Another server instance would notice within AUTH_CACHE_MS.
+   */
+  private readonly authCache = new Map<string, { userId: string; sessionId: string; username: string; until: number }>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -73,6 +81,7 @@ export class AuthService {
     const session = await this.prisma.session.findUnique({
       where: { id: payload.sid },
       include: { user: true },
+      relationLoadStrategy: 'join',
     });
     if (!session || session.userId !== payload.sub || session.revokedAt || session.expiresAt < new Date() || !session.user.isActive) {
       throw new UnauthorizedException(INVALID);
@@ -88,6 +97,7 @@ export class AuthService {
 
     if (!isCurrent && !isRecentPrevious) {
       // A rotated-out refresh token was replayed: assume theft and kill the session.
+      this.authCache.delete(session.id);
       await this.prisma.session.update({ where: { id: session.id }, data: { revokedAt: new Date() } });
       await this.audit.log(session.userId, 'auth.refresh_reuse_detected', 'session', session.id);
       throw new UnauthorizedException(INVALID);
@@ -103,6 +113,7 @@ export class AuthService {
       sid = (await this.verifyRefreshJwt(refreshToken).catch(() => null))?.sid;
     }
     if (!sid) return;
+    this.authCache.delete(sid);
     const res = await this.prisma.session.updateMany({ where: { id: sid, revokedAt: null }, data: { revokedAt: new Date() } });
     if (res.count) await this.audit.log(null, 'auth.logout', 'session', sid);
   }
@@ -133,6 +144,7 @@ export class AuthService {
     });
     if (dto.newPassword) {
       // Password change signs out every other device.
+      for (const [sid, v] of this.authCache) if (v.userId === userId && sid !== sessionId) this.authCache.delete(sid);
       await this.prisma.session.updateMany({
         where: { userId, revokedAt: null, NOT: { id: sessionId } },
         data: { revokedAt: new Date() },
@@ -153,10 +165,15 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException('Unauthorized');
     }
-    const session = await this.prisma.session.findUnique({ where: { id: payload.sid }, include: { user: true } });
+    const hit = this.authCache.get(payload.sid);
+    if (hit && hit.until > Date.now() && hit.userId === payload.sub) return { userId: hit.userId, sessionId: hit.sessionId, username: hit.username };
+    const session = await this.prisma.session.findUnique({ relationLoadStrategy: 'join', where: { id: payload.sid }, include: { user: true } });
     if (!session || session.revokedAt || session.expiresAt < new Date() || !session.user.isActive || session.userId !== payload.sub) {
+      this.authCache.delete(payload.sid);
       throw new UnauthorizedException('Unauthorized');
     }
+    if (this.authCache.size > 500) this.authCache.clear();
+    this.authCache.set(session.id, { userId: session.userId, sessionId: session.id, username: session.user.username, until: Math.min(Date.now() + AUTH_CACHE_MS, session.expiresAt.getTime()) });
     return { userId: session.userId, sessionId: session.id, username: session.user.username };
   }
 

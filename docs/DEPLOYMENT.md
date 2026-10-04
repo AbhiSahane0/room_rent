@@ -37,6 +37,12 @@ Do the steps in this order. Each step gives you a value the next one needs.
 - **Laptop:** just use the address (or install it from Chrome's address bar).
 - Change the owner password in More > Settings > Profile & Security.
 
+## Speed
+Almost all of the waiting time is network distance between the API and the database: every query is a round trip. Running the API on your laptop against Supabase in another region can add 100 to 300 ms per round trip.
+- Create the Render service in the **same region as your Supabase project** (Supabase > Project Settings > Infrastructure shows it). The API then talks to the database in about 1 ms.
+- On Render, use Supabase's **pooler** connection strings (IPv4); the direct `db.<ref>.supabase.co` address is IPv6 only.
+- The API is written to need as few sequential queries per screen as possible (one round trip for most lists). Render's free plan also sleeps when idle, so the first request after a pause takes about a minute; the `starter` plan stays awake.
+
 ## Notes
 - Render's `free` plan sleeps when idle; use `starter` for an always-on API.
 - Whenever the database schema changes, the Render deploy runs the new migrations automatically on start.

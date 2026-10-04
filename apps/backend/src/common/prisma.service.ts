@@ -6,7 +6,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor() {
     // Prisma's default interactive-transaction limit is 5 s, too tight when the database is in another region
     // (e.g. Supabase from a laptop or a Render free instance): it fails with "Transaction not found".
-    super({ transactionOptions: { maxWait: 15_000, timeout: 60_000 } });
+    super({
+      transactionOptions: { maxWait: 15_000, timeout: 60_000 },
+      ...(process.env.DEBUG_QUERIES ? { log: [{ emit: 'stdout' as const, level: 'query' as const }] } : {}),
+    });
   }
   async onModuleInit() {
     await this.$connect();

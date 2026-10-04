@@ -6,6 +6,8 @@ import type { Property } from '@rental/shared';
 interface Ctx {
   properties: Property[];
   current: Property | null;
+  /** The property remembered from the last visit: lets screens start loading before the property list arrives. */
+  rememberedId: string | null;
   setCurrentId: (id: string) => void;
   isLoading: boolean;
   isError: boolean;
@@ -26,8 +28,8 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('pref.propertyId', id);
   }, []);
   const value = useMemo<Ctx>(
-    () => ({ properties, current, setCurrentId, isLoading: query.isLoading, isError: query.isError, error: query.error, refetch: () => void query.refetch() }),
-    [properties, current, setCurrentId, query],
+    () => ({ properties, current, rememberedId: selectedId, setCurrentId, isLoading: query.isLoading, isError: query.isError, error: query.error, refetch: () => void query.refetch() }),
+    [properties, current, selectedId, setCurrentId, query],
   );
   return <PropertyContext.Provider value={value}>{children}</PropertyContext.Provider>;
 }
