@@ -29,8 +29,9 @@ export class DashboardService {
       property: selected,
       collection: { month, monthLabel, expected, collected, paymentCount, pending, collectionRate },
       occupancy: { totalRooms: occupancy.totalRooms, occupied: occupancy.occupied, vacant: occupancy.vacant, maintenance: occupancy.maintenance, occupancyPercent: occupancy.occupancyPercent },
-      pendingPayments: outstanding.items.slice(0, 5),
-      pendingCount: outstanding.count,
+      // Current tenants only: people who have moved out are listed separately below, so they never push current dues off the list.
+      pendingPayments: outstanding.items.filter((i) => i.tenantStatus === 'ACTIVE').slice(0, 5),
+      pendingCount: outstanding.items.filter((i) => i.tenantStatus === 'ACTIVE').length,
       /** People who have moved out but still owe money, largest first. */
       formerTenantDues: outstanding.items.filter((i) => i.tenantStatus !== 'ACTIVE').slice(0, 5),
       kpis: {

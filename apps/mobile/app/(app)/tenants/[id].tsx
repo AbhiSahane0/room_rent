@@ -8,6 +8,7 @@ import { DocumentsSection } from '@/features/documents/DocumentsSection';
 import { PaymentsSection } from '@/features/payments/PaymentsSection';
 import { useTenant } from '@/features/tenants/api';
 import { ChangeRentSheet } from '@/features/tenants/ChangeRentSheet';
+import { ElectricitySheet } from '@/features/tenants/ElectricitySheet';
 import { callPhone, openWhatsApp } from '@/features/tenants/contact';
 import { Avatar } from '@/features/tenants/TenantCard';
 import { formatDate, formatINR, formatMonthShort } from '@/utils/format';
@@ -21,6 +22,7 @@ export default function TenantProfileScreen() {
   const { data: t, isLoading, isError, error, refetch, isRefetching } = useTenant(id);
   const [section, setSection] = useState<Section>('Overview');
   const [rentOpen, setRentOpen] = useState(false);
+  const [elecOpen, setElecOpen] = useState(false);
 
   if (isLoading) return <Screen><Header title="Tenant" /><SkeletonList count={3} /></Screen>;
   if (isError || !t) return <Screen><Header title="Tenant" /><ErrorState error={error} onRetry={refetch} /></Screen>;
@@ -61,6 +63,10 @@ export default function TenantProfileScreen() {
           <Card className="mt-4">
             <DetailRow label="Monthly Rent" value={summary ? formatINR(summary.agreedRent) : '-'} />
             <DetailRow label="Deposit" value={summary ? formatINR(summary.securityDeposit) : '-'} />
+            {a ? (
+              <DetailRow label="Electricity" value={a.electricityMode === 'METER' ? `${formatINR(a.ratePerUnit)} / unit` : a.electricityMode === 'FIXED' ? `Fixed ${formatINR(a.fixedElectricity)}` : 'Not charged'} />
+            ) : null}
+            {a ? <Pressable onPress={() => setElecOpen(true)} accessibilityRole="button" hitSlop={8} className="-mt-1 mb-1 self-end"><Text variant="secondaryMedium" tone="primary">Change electricity rate</Text></Pressable> : null}
             <DetailRow label="Outstanding" value={t.outstanding > 0 ? formatINR(t.outstanding) : 'Nil'} tone={t.outstanding > 0 ? 'danger' : 'success'} />
             <DetailRow label="Move-in" value={formatDate(summary?.startDate ?? t.joiningDate)} last />
           </Card>
@@ -128,6 +134,7 @@ export default function TenantProfileScreen() {
         </View>
       ) : null}
 
+      {a ? <ElectricitySheet key={`${a.id}-${a.ratePerUnit}-${a.electricityMode}`} visible={elecOpen} onClose={() => setElecOpen(false)} assignmentId={a.id} mode={a.electricityMode} ratePerUnit={a.ratePerUnit} fixedElectricity={a.fixedElectricity} /> : null}
       {a ? <ChangeRentSheet visible={rentOpen} onClose={() => setRentOpen(false)} assignmentId={a.id} currentRent={a.agreedRent} startDate={a.startDate} /> : null}
     </Screen>
   );

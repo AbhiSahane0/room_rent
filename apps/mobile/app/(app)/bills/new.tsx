@@ -6,6 +6,7 @@ import { Pressable, View } from 'react-native';
 import { api, ApiError, friendlyError } from '@/api/client';
 import { Button, Card, DateField, DetailRow, EmptyState, Header, Icon, Input, MonthStepper, Screen, Select, SectionHeader, Skeleton, Text } from '@/components/ui';
 import { BillRequest, useBillPreview, useCreateBill } from '@/features/bills/api';
+import { useChangeElectricity } from '@/features/tenants/api';
 import { ChargeRow, ChargeSheet } from '@/features/bills/ChargeSheet';
 import { useProperty } from '@/features/properties/PropertyProvider';
 import { useDebounced } from '@/hooks/useDebounced';
@@ -22,6 +23,7 @@ export default function GenerateBillScreen() {
   const [period, setPeriod] = useState<string | undefined>();
   const [reading, setReading] = useState('');
   const [prevReading, setPrevReading] = useState('');
+  const [rate, setRate] = useState('');
   const [manual, setManual] = useState(false);
   const [manualAmount, setManualAmount] = useState('');
   const [charges, setCharges] = useState<ChargeRow[]>([]);
@@ -48,16 +50,18 @@ export default function GenerateBillScreen() {
       electricity: {
         ...(manual ? { currentReading: num(reading), overrideAmount: num(manualAmount) ?? 0 } : { currentReading: num(reading) }),
         ...(prevReading.trim() !== '' && num(prevReading) !== undefined ? { previousReading: num(prevReading) } : {}),
+        ...(rate.trim() !== '' && num(rate) !== undefined ? { ratePerUnit: num(rate) } : {}),
       },
       charges: charges.filter((c) => num(c.amount)).map((c) => ({ type: c.type, name: c.name, amount: Number(c.amount) })),
       lateFee: num(lateFee),
       discount: num(discount),
     };
-  }, [tenantId, period, dueDate, manual, reading, prevReading, manualAmount, charges, lateFee, discount]);
+  }, [tenantId, period, dueDate, manual, reading, prevReading, rate, manualAmount, charges, lateFee, discount]);
 
   const debounced = useDebounced(request, 400);
   const preview = useBillPreview(debounced);
   const data = preview.data;
+  const saveRate = useChangeElectricity(data?.assignmentId ?? '');
   const settling = request !== debounced || preview.isFetching;
 
   // First response seeds the month and any recurring charges (adjusting state while rendering, not in an effect).
@@ -141,6 +145,11 @@ export default function GenerateBillScreen() {
                         <View className="flex-1"><Input label="Previous" keyboardType="decimal-pad" value={prevReading !== '' ? prevReading : String(el.previousReading ?? 0)} onChangeText={setPrevReading} /></View>
                         <View className="flex-1"><Input label="Current" placeholder="Enter reading" keyboardType="decimal-pad" value={reading} onChangeText={setReading} editable={!manual} /></View>
                       </View>
+                      <Input label="Rate per unit" prefix="₹" keyboardType="decimal-pad" value={rate !== '' ? rate : String(el.ratePerUnit ?? '')} onChangeText={setRate} editable={!manual}
+                        hint={rate !== '' && num(rate) !== undefined ? 'Used for this bill only.' : "This tenant's rate. Change it for one bill, or save it for all future bills."} />
+                      {rate !== '' && num(rate) !== undefined && num(rate) !== data.electricity.defaultRatePerUnit ? (
+                        <Pressable onPress={() => saveRate.mutate({ ratePerUnit: num(rate) }, { onSuccess: () => setRate('') })} accessibilityRole="button" disabled={saveRate.isPending}><Text variant="secondaryMedium" tone="primary">Save ₹{rate} as this tenant&apos;s rate for all future bills</Text></Pressable>
+                      ) : null}
                       {prevReading === '' && (el.previousReading ?? 0) === 0 ? <Text variant="caption" tone="warning">No earlier meter reading is on record. Type the last reading from the meter in Previous, otherwise the whole meter value is billed.</Text> : null}
                       {prevReading !== '' ? <Text variant="caption" tone="warning">Previous reading changed by you. Use this only if the stored reading is wrong or the meter was replaced.</Text> : null}
                       {!manual && el.currentReading != null ? (

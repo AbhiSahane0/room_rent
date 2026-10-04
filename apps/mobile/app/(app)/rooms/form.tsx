@@ -30,12 +30,16 @@ export default function RoomFormScreen() {
   const save = useSaveRoom(id);
   const [error, setError] = useState<string | null>(null);
 
-  const { control, handleSubmit, reset, setValue, setError: setFieldError } = useForm<Form>({
+  const { control, handleSubmit, reset, setValue, getValues, setError: setFieldError } = useForm<Form>({
     resolver: zodResolver(schema),
     defaultValues: { roomNumber: '', floor: '', defaultRent: '', electricityMode: 'METER', ratePerUnit: '', fixedElectricity: '', status: 'VACANT', notes: '' },
   });
   const mode = useWatch({ control, name: 'electricityMode' });
   const room = roomQuery.data;
+  // A new room starts with the property's default rate, which you can change for this room.
+  useEffect(() => {
+    if (!id && current && getValues('ratePerUnit') === '') setValue('ratePerUnit', String(current.defaultRatePerUnit));
+  }, [id, current, getValues, setValue]);
 
   useEffect(() => {
     if (room) {
@@ -87,7 +91,7 @@ export default function RoomFormScreen() {
             options={[{ value: 'METER', label: 'Meter' }, { value: 'FIXED', label: 'Fixed' }, { value: 'NONE', label: 'None' }]}
           />
         </View>
-        {mode === 'METER' ? <MoneyField control={control} name="ratePerUnit" label="Rate per Unit" hint="Charged per unit (kWh) of meter reading" /> : null}
+        {mode === 'METER' ? <MoneyField control={control} name="ratePerUnit" label="Rate per Unit" hint={`Each room can have its own rate. New rooms start at the property default${current ? ` (₹${current.defaultRatePerUnit})` : ''}.`} /> : null}
         {mode === 'FIXED' ? <MoneyField control={control} name="fixedElectricity" label="Fixed Monthly Electricity" /> : null}
         {id && room?.status !== 'OCCUPIED' ? (
           <SelectField control={control} name="status" label="Status" options={[{ value: 'VACANT', label: 'Vacant', hint: 'Available to assign' }, { value: 'MAINTENANCE', label: 'Maintenance', hint: 'Not available for rent' }]} />

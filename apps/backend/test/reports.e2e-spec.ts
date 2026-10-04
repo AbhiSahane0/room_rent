@@ -134,7 +134,8 @@ describe('Dashboard & reports (e2e)', () => {
     expect(d.kpis.dues.overdue).toMatchObject({ amount: 7000, count: 2 }); // both due dates have passed
     expect(d.formerTenantDues).toHaveLength(1);
     expect(d.formerTenantDues[0]).toMatchObject({ fullName: 'Left Behind', balance: 3000, tenantStatus: 'MOVED_OUT' });
-    expect(d.pendingPayments.map((p: { fullName: string }) => p.fullName)).toContain('Left Behind');
+    expect(d.pendingPayments.map((p: { fullName: string }) => p.fullName)).toEqual(['Rahul Sharma']); // current tenants only
+    expect(d.pendingCount).toBe(1);
     expect(d.kpis.composition).toMatchObject({ rent: 17000, bills: 3 }); // Rahul 9000 + Amit 5000 + the tenant who left 3000
     expect(d.kpis.rentRoll).toMatchObject({ tenants: 2 });
     expect(d.kpis.vacancy.lostRent).toBeGreaterThan(0);
