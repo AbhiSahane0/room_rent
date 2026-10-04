@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { Building2, ChevronRight, Info, LogOut, ReceiptText, ShieldCheck, UserRound } from 'lucide-react-native';
+import { Building2, ChevronRight, Info, LogOut, ReceiptText, ShieldCheck } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -46,8 +46,7 @@ export default function SettingsScreen() {
 
       <SectionHeader title="Account" />
       <Card padded={false}>
-        <Row icon={UserRound} label="Profile" hint="Change username or password" onPress={() => router.push('/settings/security')} />
-        <Row icon={ShieldCheck} label="Security" hint="Password and signed-in devices" onPress={() => router.push('/settings/security')} last />
+        <Row icon={ShieldCheck} label="Profile & Security" hint="Change your username or password" onPress={() => router.push('/settings/security')} last />
       </Card>
 
       <SectionHeader title="Property" />

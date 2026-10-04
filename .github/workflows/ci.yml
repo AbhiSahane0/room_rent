@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: rent
+          POSTGRES_PASSWORD: rent
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U rent" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://rent:rent@localhost:5432/room_rent_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Tests (backend runs against real PostgreSQL)
+        run: npm test
+      - name: Build backend
+        run: npm run -w @rental/backend build
+      - name: Bundle the Android app (compile check)
+        working-directory: apps/mobile
+        run: CI=1 npx expo export --platform android --output-dir /tmp/android-bundle
+        env:
+          EXPO_PUBLIC_API_URL: https://api.example.com

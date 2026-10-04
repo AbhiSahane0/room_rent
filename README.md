@@ -89,7 +89,7 @@ npm run typecheck && npm run lint && npm test
 ```
 
 The backend suite (111 tests) runs against a real PostgreSQL database (`room_rent_test`, created and migrated
-automatically; override with `TEST_DATABASE_URL`). It covers login, refresh rotation and reuse detection, logout, room assignment
+automatically on first run; override with `TEST_DATABASE_URL`; the name must contain "test"). The mobile package has unit tests for its formatting and validation helpers, and CI (`.github/workflows/ci.yml`) also bundles the Android app. It covers login, refresh rotation and reuse detection, logout, room assignment
 (including concurrent requests), move-out, rent changes, electricity and bill maths, duplicate-bill prevention, carry-forward,
 partial payments and races, outstanding balances, document authorisation and validation, PDF contents, reports, and the full
 28-step acceptance scenario (`apps/backend/test/acceptance.e2e-spec.ts`).
