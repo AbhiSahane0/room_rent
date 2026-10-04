@@ -11,6 +11,8 @@ import { PrismaModule } from './common/prisma.service';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { PropertiesModule } from './properties/properties.module';
 import { RoomsModule } from './rooms/rooms.module';
+import { AssignmentsModule } from './assignments/assignments.module';
+import { TenantsModule } from './tenants/tenants.module';
 
 @Controller('health')
 class HealthController {
@@ -31,6 +33,8 @@ class HealthController {
     DashboardModule,
     PropertiesModule,
     RoomsModule,
+    AssignmentsModule,
+    TenantsModule,
   ],
   controllers: [HealthController],
   providers: [
