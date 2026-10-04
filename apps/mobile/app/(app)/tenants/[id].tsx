@@ -3,13 +3,14 @@ import { DoorOpen, LogOut, MessageCircle, Pencil, Phone, TrendingUp, UserPlus } 
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Badge, Button, Card, Chip, DetailRow, ErrorState, Header, Icon, Screen, SectionHeader, SkeletonList, Text } from '@/components/ui';
+import { DocumentsSection } from '@/features/documents/DocumentsSection';
 import { useTenant } from '@/features/tenants/api';
 import { ChangeRentSheet } from '@/features/tenants/ChangeRentSheet';
 import { callPhone, openWhatsApp } from '@/features/tenants/contact';
 import { Avatar } from '@/features/tenants/TenantCard';
 import { formatDate, formatINR, formatMonthShort } from '@/utils/format';
 
-const SECTIONS = ['Overview', 'Room History'] as const;
+const SECTIONS = ['Overview', 'Documents', 'Room History'] as const;
 type Section = (typeof SECTIONS)[number];
 
 export default function TenantProfileScreen() {
@@ -96,6 +97,8 @@ export default function TenantProfileScreen() {
           ) : null}
         </>
       ) : null}
+
+      {section === 'Documents' ? <DocumentsSection tenantId={t.id} /> : null}
 
       {section === 'Room History' ? (
         <View className="mt-4 gap-3">

@@ -127,6 +127,13 @@ export async function authedFetch(path: string): Promise<Response> {
 
 export const apiUrl = (path: string) => `${BASE_URL}${path}`;
 
+/** For XHR uploads (progress events): current bearer header, and a way to refresh after a 401. */
+export const getAuthHeader = async () => {
+  const token = await tokenStorage.getAccess();
+  return token ? `Bearer ${token}` : null;
+};
+export const refreshSession = refreshTokens;
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: body ?? {} }),

@@ -20,6 +20,8 @@ export class LocalFilesController {
     res.setHeader('Content-Disposition', `inline; filename="${(name ?? 'document').replace(/[^\w.\- ]/g, '_')}"`);
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    // Helmet defaults to same-origin; the dev web preview loads this from another origin. The link is signed and short-lived.
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.send(file.body);
   }
 }

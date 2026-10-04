@@ -1,12 +1,19 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, ArrowRight, Check, FileText, Pencil } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Check, Pencil } from 'lucide-react-native';
 import { useState } from 'react';
 import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
 import { Pressable, View } from 'react-native';
-import { friendlyError } from '@/api/client';
 import { Button, Card, DateField, DetailRow, Header, Icon, Screen, StepIndicator, Text, TextField } from '@/components/ui';
+import { friendlyError } from '@/api/client';
+import type { DocumentType } from '@/types/api';
 import { useProperty } from '@/features/properties/PropertyProvider';
+import { useQueryClient } from '@tanstack/react-query';
+import { uploadTenantDocument } from '@/features/documents/api';
+import { DOC_ORDER } from '@/features/documents/constants';
+import { DocumentSlot } from '@/features/documents/DocumentSlot';
+import type { PickedDocument } from '@/features/documents/pickFile';
+import { QueueItem, UploadQueue } from '@/features/documents/UploadQueue';
 import { useCreateTenant } from '@/features/tenants/api';
 import { RentFields, RoomPicker } from '@/features/tenants/AssignmentFields';
 import { assignmentPayload, emptyTenantForm, STEP_FIELDS, TenantForm, tenantFormSchema, tenantPayload } from '@/features/tenants/schemas';
@@ -20,8 +27,14 @@ export default function AddTenantScreen() {
   const { roomId } = useLocalSearchParams<{ roomId?: string }>();
   const { current } = useProperty();
   const create = useCreateTenant();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [docs, setDocs] = useState<Partial<Record<DocumentType, PickedDocument>>>({});
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const DOC_STEP_TYPES = DOC_ORDER.filter((t) => t !== 'OTHER');
 
   const form = useForm<TenantForm>({
     resolver: zodResolver(tenantFormSchema),
@@ -40,12 +53,43 @@ export default function AddTenantScreen() {
   };
   const back = () => (step === 0 ? router.back() : setStep((s) => (name === 'Review' && !hasRoom() ? s - 2 : s - 1)));
 
+  const goToProfile = (id: string) => router.replace({ pathname: '/tenants/[id]', params: { id } });
+
+  /** Uploads every picked document that is not done yet; returns true when none failed. */
+  const runUploads = async (tenantId: string, only?: DocumentType[]) => {
+    const types = (only ?? DOC_STEP_TYPES).filter((t) => docs[t]);
+    setQueue((q) => DOC_STEP_TYPES.filter((t) => docs[t]).map((t) => q.find((i) => i.type === t && i.status === 'done') ?? { type: t, status: 'pending', progress: 0 }));
+    setQueueOpen(true);
+    let ok = true;
+    for (const type of types) {
+      const patch = (p: Partial<QueueItem>) => setQueue((q) => q.map((i) => (i.type === type ? { ...i, ...p } : i)));
+      patch({ status: 'uploading', progress: 0, error: undefined });
+      try {
+        await uploadTenantDocument(tenantId, docs[type]!, type, (f) => patch({ progress: f }));
+        patch({ status: 'done', progress: 1 });
+      } catch (e) {
+        ok = false;
+        patch({ status: 'failed', error: friendlyError(e) });
+      }
+    }
+    await queryClient.invalidateQueries({ queryKey: ['tenants'] });
+    return ok;
+  };
+
   const submit = handleSubmit(async (v) => {
     setError(null);
     try {
-      const body = { ...tenantPayload(v, v.roomId ? undefined : current?.id), ...(v.roomId ? { assignment: assignmentPayload(v) } : {}) };
-      const tenant = await create.mutateAsync(body);
-      router.replace({ pathname: '/tenants/[id]', params: { id: tenant.id } });
+      let id = createdId;
+      if (!id) {
+        const body = { ...tenantPayload(v, v.roomId ? undefined : current?.id), ...(v.roomId ? { assignment: assignmentPayload(v) } : {}) };
+        id = (await create.mutateAsync(body)).id;
+        setCreatedId(id);
+      }
+      if (Object.keys(docs).length === 0) return goToProfile(id);
+      if (await runUploads(id)) {
+        setQueueOpen(false);
+        goToProfile(id);
+      }
     } catch (e) {
       setError(friendlyError(e));
     }
@@ -98,13 +142,12 @@ export default function AddTenantScreen() {
           ) : null}
 
           {name === 'Documents' ? (
-            <Card className="flex-row items-start gap-3">
-              <View className="h-10 w-10 items-center justify-center rounded-md bg-primary-soft"><Icon icon={FileText} tone="primary" /></View>
-              <View className="flex-1">
-                <Text variant="heading">Aadhaar, PAN and agreement</Text>
-                <Text tone="soft" className="mt-1">Documents are uploaded securely once the tenant is saved. You will be able to add them from the tenant profile.</Text>
-              </View>
-            </Card>
+            <>
+              <Text tone="soft">Capture or upload documents now, or add them later from the tenant profile. Files are stored privately and encrypted in transit.</Text>
+              {DOC_STEP_TYPES.map((t) => (
+                <DocumentSlot key={t} type={t} value={docs[t]} onChange={(d) => setDocs((cur) => { const next = { ...cur }; if (d) next[t] = d; else delete next[t]; return next; })} />
+              ))}
+            </>
           ) : null}
 
           {name === 'Room' ? (
@@ -128,6 +171,9 @@ export default function AddTenantScreen() {
                 <DetailRow label="Email" value={v.email || '-'} />
                 <DetailRow label="Emergency" value={v.emergencyContact ? `${v.emergencyContact}${v.emergencyPhone ? ` (${v.emergencyPhone})` : ''}` : '-'} last />
               </ReviewCard>
+              <ReviewCard title="Documents" onEdit={() => setStep(2)}>
+                {DOC_STEP_TYPES.map((t, i) => <DetailRow key={t} label={t === 'AADHAAR' ? 'Aadhaar' : t === 'PAN' ? 'PAN' : 'Agreement'} value={docs[t] ? 'Ready to upload' : 'Not added'} last={i === DOC_STEP_TYPES.length - 1} />)}
+              </ReviewCard>
               <ReviewCard title="Room & Rent" onEdit={() => setStep(3)}>
                 {v.roomId ? (
                   <>
@@ -145,6 +191,12 @@ export default function AddTenantScreen() {
           ) : null}
         </View>
       </FormProvider>
+      <UploadQueue
+        visible={queueOpen}
+        items={queue}
+        onRetry={() => createdId && runUploads(createdId, queue.filter((i) => i.status === 'failed').map((i) => i.type)).then((ok) => { if (ok) { setQueueOpen(false); goToProfile(createdId); } })}
+        onContinue={() => { setQueueOpen(false); if (createdId) goToProfile(createdId); }}
+      />
     </Screen>
   );
 }

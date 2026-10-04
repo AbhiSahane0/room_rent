@@ -99,3 +99,14 @@ export interface TenantDetail {
     moveOutNotes: string | null;
   }[];
 }
+
+export interface TenantDocumentItem {
+  id: string;
+  tenantId: string;
+  type: DocumentType;
+  label: string | null;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+}
