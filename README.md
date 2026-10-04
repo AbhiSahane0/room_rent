@@ -14,6 +14,7 @@ Mobile app ──HTTPS──▶ NestJS API ──▶ Supabase PostgreSQL
 
 ```
 apps/mobile      Expo app (app/ routes, components/ui design system, features/, api/, services/, theme/)
+apps/web         Website (Vite + React + Tailwind): same features as the phone app, for laptop and phone browsers
 apps/backend     NestJS API (auth, properties, rooms, tenants, assignments, documents, billing, payments, reports, dashboard)
 packages/shared  Shared enums and response types
 prisma/          schema.prisma and SQL migrations (database-level business rules live here)
@@ -90,6 +91,7 @@ reading into **Previous** on Generate Bill. Run it on the machine that holds you
 | backend | `TRUST_PROXY` | `1` when behind one reverse proxy (Render, Railway, Fly, Nginx), so rate limiting sees real client IPs |
 | backend | `PORT`, `NODE_ENV` | Server |
 | backend | `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD` | First owner account (`db:seed`) |
+| web | `VITE_API_URL` | API address, baked in at build time (public; no secrets) |
 | mobile | `EXPO_PUBLIC_API_URL` | **The only** mobile variable. It is public by design; never put secrets in `EXPO_PUBLIC_*` |
 
 ## 4. Quality checks
@@ -121,31 +123,36 @@ Production never seeds demo data.
 
 ## 6. Web app (laptop and phone browsers, installable on iPhone)
 
-The same code runs as a website, so iPhone users do not need the App Store. It is responsive: phones get the bottom-tab layout,
-tablets get card grids, and laptops get a sidebar with a centred content column.
+`apps/web` is a separate website (Vite + React + Tailwind) that talks to the same API as the phone app, so iPhone users do not need the App Store.
+It is responsive: phones get the bottom-tab layout, tablets get card grids, and laptops get a sidebar.
 
 ```bash
-npm run web:preview         # builds the site and serves it at http://localhost:8081 (most reliable way to run it locally)
-npm run web                 # Expo dev server with hot reload (needs a working Expo install and network access)
-EXPO_PUBLIC_API_URL=https://api.yourdomain.com npm run web:build    # static site in apps/mobile/dist
+# apps/web/.env  (copy from .env.example)
+VITE_API_URL=http://localhost:3000
+
+# apps/backend/.env : allow the dev site to call the API
+CORS_ORIGINS=http://localhost:5173
+
+npm run backend             # API on :3000
+npm run web                 # website with hot reload on http://localhost:5173
+npm run web:build           # static site in apps/web/dist
+npm run web:preview         # serve the built site on :5173
 ```
 
-Deploy `apps/mobile/dist` to any static host. **Cloudflare Pages** (you already use Cloudflare): create a project, build command
-`npm ci && npm run web:build`, output directory `apps/mobile/dist`, and set `EXPO_PUBLIC_API_URL` as a build variable. `public/_redirects`
-makes deep links work and `public/_headers` adds security headers. Then:
+Deploy `apps/web/dist` to any static host. **Vercel**: import the repo, leave the Root Directory as the repo root (`vercel.json` supplies the build command,
+output folder, deep-link rewrite and security headers), set `VITE_API_URL` to your API address, and replace `https://api.example.com` in `vercel.json`'s `connect-src`.
+**Cloudflare Pages**: build command `npm ci && npm run web:build`, output directory `apps/web/dist`, and set `VITE_API_URL`; `public/_redirects` and `public/_headers` are included
+(replace the API origin in `_headers`). Then:
 
-1. In `apps/mobile/public/_headers`, replace `https://api.example.com` in the `connect-src` rule with your API origin.
-2. On the **backend**, set `CORS_ORIGINS=https://your-web-domain` (comma-separated for several) and `TRUST_PROXY=1`.
-3. Serve both over HTTPS (required for camera access, installing to the home screen and secure cookies/headers).
-
-**Vercel instead:** import the repo, leave the Root Directory as the repo root (`vercel.json` supplies the build command, output folder, deep-link rewrite and security headers), set `EXPO_PUBLIC_API_URL`, and replace `https://api.example.com` in `vercel.json`'s `connect-src`.
+1. On the **backend**, set `CORS_ORIGINS=https://your-web-domain` (comma-separated for several) and `TRUST_PROXY=1`.
+2. Serve both over HTTPS (required for camera access and installing to the home screen).
 
 **iPhone:** there is no APK equivalent on iOS (TestFlight and sideloading need a paid Apple Developer account, about $99/year). Open the site in Safari, tap Share, then *Add to Home Screen*. It opens full screen with its own icon like an app.
 **Android/desktop Chrome:** use the install icon in the address bar. Camera capture, file upload, PDF view/download and Share work in the browser
 (iPhone Safari offers the native share sheet for the PDF; desktop browsers download it instead).
 
 Web security note: on the web the session tokens live in the browser's `localStorage` (phones use the secure keystore). The short 15-minute
-access token, rotating refresh token with replay detection, and the strict Content-Security-Policy in `_headers` limit the risk; keep the CSP
+access token, rotating refresh token with replay detection, and the strict Content-Security-Policy in `vercel.json`/`_headers` limit the risk; keep the CSP
 and do not add third-party scripts to the site. Signing out revokes the session on the server.
 
 ## 7. Build the Android app

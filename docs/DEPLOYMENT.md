@@ -24,7 +24,7 @@ Do the steps in this order. Each step gives you a value the next one needs.
 
 ## 4. Vercel (website)
 1. Vercel > Add New > Project > import this repository. Leave the **Root Directory** as the repo root; `vercel.json` provides the build command, output folder, deep-link rewrite and security headers.
-2. Settings > Environment Variables: `EXPO_PUBLIC_API_URL` = your Render address (no trailing slash). Add it for Production **and** Preview.
+2. Settings > Environment Variables: `VITE_API_URL` = your Render address (no trailing slash). Add it for Production **and** Preview.
 3. Edit `vercel.json` and replace `https://api.example.com` in the `connect-src` rule with the same Render address, commit and push.
 4. Deploy. Note the address Vercel gives you (or attach your own domain).
 
@@ -41,4 +41,4 @@ Do the steps in this order. Each step gives you a value the next one needs.
 - Render's `free` plan sleeps when idle; use `starter` for an always-on API.
 - Whenever the database schema changes, the Render deploy runs the new migrations automatically on start.
 - Do not commit `.env` files or the Excel register. Secrets live only in Render, Vercel and your own computer.
-- Changing the API address later means: update `EXPO_PUBLIC_API_URL` in Vercel, `connect-src` in `vercel.json`, and redeploy the site.
+- Changing the API address later means: update `VITE_API_URL` in Vercel, `connect-src` in `vercel.json`, and redeploy the site.

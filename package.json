@@ -16,10 +16,10 @@
     "lint": "npm run -ws --if-present lint",
     "test": "npm run -ws --if-present test",
     "db:import": "npm run -w @rental/backend prisma:import --",
-    "web:build": "npm run -w @rental/mobile web:build",
-    "web": "npm run -w @rental/mobile web",
+    "web:build": "npm run -w @rental/web build",
+    "web": "npm run -w @rental/web dev",
     "db:deploy": "npm run -w @rental/backend prisma:deploy",
     "db:status": "npm run -w @rental/backend prisma:status",
-    "web:preview": "npm run -w @rental/mobile web:preview"
+    "web:preview": "npm run -w @rental/web preview"
   }
 }

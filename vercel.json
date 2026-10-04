@@ -1,7 +1,7 @@
 {
   "buildCommand": "npm run web:build",
   "installCommand": "npm ci",
-  "outputDirectory": "apps/mobile/dist",
+  "outputDirectory": "apps/web/dist",
   "cleanUrls": true,
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
@@ -15,7 +15,7 @@
         { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" }
       ]
     },
-    { "source": "/_expo/static/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
+    { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
     { "source": "/manifest.webmanifest", "headers": [{ "key": "Content-Type", "value": "application/manifest+json" }] }
   ]
 }

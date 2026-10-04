@@ -1,0 +1,107 @@
+import { DoorOpen, LogOut, MessageCircle, Pencil, Phone, TrendingUp, UserPlus } from 'lucide-react';
+import { useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { Avatar, Badge, Card, Chip, ChipRow, DetailRow, ErrorState, Icon, LinkButton, SectionHeader, SkeletonList } from '@/components/ui';
+import { Page } from '@/components/layout/Page';
+import { BillsSection } from '@/features/bills/BillsSection';
+import { DocumentsSection } from '@/features/documents/DocumentsSection';
+import { PaymentsSection } from '@/features/payments/PaymentsSection';
+import { useTenant } from '@/features/tenants/api';
+import { ChangeRentModal } from '@/features/tenants/ChangeRentModal';
+import { telUrl, whatsappUrl } from '@/features/tenants/contact';
+import { formatDate, formatINR, formatMonthShort } from '@/utils/format';
+
+const SECTIONS = ['Overview', 'Documents', 'Bills', 'Payments', 'Room History'] as const;
+type Section = (typeof SECTIONS)[number];
+
+export function TenantProfilePage() {
+  const { id } = useParams();
+  const { data: t, isLoading, isError, error, refetch } = useTenant(id);
+  const [section, setSection] = useState<Section>('Overview');
+  const [rentOpen, setRentOpen] = useState(false);
+
+  if (isLoading) return <Page title="Tenant" back="/tenants"><SkeletonList count={3} /></Page>;
+  if (isError || !t) return <Page title="Tenant" back="/tenants"><ErrorState error={error} onRetry={() => void refetch()} /></Page>;
+
+  const a = t.currentAssignment;
+  const summary = a ?? t.lastAssignment;
+  return (
+    <Page title="Tenant" back="/tenants" actions={<Link to={`/tenants/${t.id}/edit`} aria-label="Edit tenant" className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-surface-muted"><Icon icon={Pencil} tone="ink" /></Link>}>
+      <Card className="flex flex-col items-center gap-1 py-5">
+        <Avatar name={t.fullName} size={64} />
+        <h2 className="mt-2 text-center text-title">{t.fullName}</h2>
+        <p className="text-ink-soft">{a ? `Room ${a.room.roomNumber}` : 'No room assigned'} · {t.property.name}</p>
+        {t.status === 'MOVED_OUT' ? <div className="mt-1"><Badge label="Moved out" tone="neutral" /></div> : null}
+        <div className="mt-4 flex w-full gap-3">
+          {t.phone ? (
+            <>
+              <a href={telUrl(t.phone)} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-md border border-line-strong font-semibold hover:bg-surface-muted"><Icon icon={Phone} tone="ink" />Call</a>
+              <a href={whatsappUrl(t.phone)} target="_blank" rel="noopener noreferrer" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-md border border-line-strong font-semibold hover:bg-surface-muted"><Icon icon={MessageCircle} tone="ink" />WhatsApp</a>
+            </>
+          ) : <LinkButton to={`/tenants/${t.id}/edit`} icon={Phone} variant="secondary">Add phone number</LinkButton>}
+        </div>
+      </Card>
+
+      <div className="mt-4"><ChipRow>{SECTIONS.map((s) => <Chip key={s} label={s} selected={section === s} onClick={() => setSection(s)} />)}</ChipRow></div>
+
+      {section === 'Overview' ? (
+        <>
+          <Card className="mt-4">
+            <DetailRow label="Monthly Rent" value={summary ? formatINR(summary.agreedRent) : '-'} />
+            <DetailRow label="Deposit" value={summary ? formatINR(summary.securityDeposit) : '-'} />
+            <DetailRow label="Outstanding" value={t.outstanding > 0 ? formatINR(t.outstanding) : 'Nil'} tone={t.outstanding > 0 ? 'danger' : 'success'} />
+            <DetailRow label="Move-in" value={formatDate(summary?.startDate ?? t.joiningDate)} last />
+          </Card>
+          <div className="mt-4 space-y-3">
+            {a ? (
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setRentOpen(true)} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-line-strong font-semibold hover:bg-surface-muted"><Icon icon={TrendingUp} tone="ink" />Change Rent</button>
+                <LinkButton to={`/tenants/${t.id}/move-out`} icon={LogOut} variant="danger">Move Out</LinkButton>
+              </div>
+            ) : <LinkButton to={`/tenants/${t.id}/assign`} icon={UserPlus}>Assign Room</LinkButton>}
+          </div>
+          <SectionHeader title="Contact" />
+          <Card>
+            <DetailRow label="Phone" value={t.phone || 'Not added'} />
+            {t.alternatePhone ? <DetailRow label="Alternate" value={t.alternatePhone} /> : null}
+            <DetailRow label="Email" value={t.email ?? '-'} />
+            <DetailRow label="Occupation" value={t.occupation ?? '-'} />
+            <DetailRow label="Emergency" value={t.emergencyContact ? `${t.emergencyContact}${t.emergencyPhone ? ` · ${t.emergencyPhone}` : ''}` : '-'} />
+            <DetailRow label="Current address" value={t.currentAddress ?? '-'} />
+            <DetailRow label="Permanent address" value={t.permanentAddress ?? '-'} last={!t.notes} />
+            {t.notes ? <DetailRow label="Notes" value={t.notes} last /> : null}
+          </Card>
+          {a && a.rents.length > 0 ? (
+            <>
+              <SectionHeader title="Rent History" />
+              <Card padded={false} className="overflow-hidden">
+                {a.rents.map((r, i) => (
+                  <div key={r.id} className={`flex items-center justify-between px-4 py-3 ${i < a.rents.length - 1 ? 'border-b border-line' : ''}`}><span className="text-ink-soft">From {formatMonthShort(r.effectiveFrom)}</span><span className="font-medium">{formatINR(r.amount)}</span></div>
+                ))}
+              </Card>
+            </>
+          ) : null}
+        </>
+      ) : null}
+
+      {section === 'Documents' ? <DocumentsSection tenantId={t.id} /> : null}
+      {section === 'Payments' ? <PaymentsSection tenantId={t.id} canPay={t.outstanding > 0} /> : null}
+      {section === 'Bills' ? <BillsSection tenantId={t.id} canBill={!!t.currentAssignment || t.roomHistory.length > 0} /> : null}
+
+      {section === 'Room History' ? (
+        <div className="mt-4 space-y-3">
+          {t.roomHistory.length === 0 ? <Card className="flex items-center gap-3"><Icon icon={DoorOpen} tone="muted" /><span className="text-ink-soft">This tenant has not been assigned a room yet.</span></Card> : t.roomHistory.map((h) => (
+            <Card key={h.assignmentId} className="space-y-1">
+              <div className="flex items-center justify-between"><span className="text-heading">Room {h.room.roomNumber}</span><Badge label={h.status === 'ACTIVE' ? 'Current' : 'Closed'} tone={h.status === 'ACTIVE' ? 'success' : 'neutral'} /></div>
+              <div className="text-ink-soft">{formatDate(h.startDate)} to {h.endDate ? formatDate(h.endDate) : 'Present'}</div>
+              <div className="text-small text-ink-soft">{formatINR(h.agreedRent)} / month · Deposit {formatINR(h.securityDeposit)}</div>
+              {h.moveOutNotes ? <div className="text-small text-ink-muted">{h.moveOutNotes}</div> : null}
+            </Card>
+          ))}
+        </div>
+      ) : null}
+
+      {a && rentOpen ? <ChangeRentModal open onClose={() => setRentOpen(false)} assignmentId={a.id} currentRent={a.agreedRent} startDate={a.startDate} /> : null}
+    </Page>
+  );
+}
