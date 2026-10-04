@@ -32,10 +32,12 @@ Requirements: Node 20+ (tested on 22), PostgreSQL 14+ (or a Supabase project).
 npm install
 
 # Backend configuration
-cp .env.example apps/backend/.env        # edit DATABASE_URL, JWT secrets, R2 keys (see section 2)
+cp .env.example apps/backend/.env        # edit DATABASE_URL, DIRECT_URL, JWT secrets, R2 keys (see section 2)
+                                         # (a .env at the repository root works too)
 
-# Database
-npm run db:migrate                       # creates/updates tables (use prisma:deploy against Supabase)
+# Database. Supabase IS the PostgreSQL database: you do not install Postgres yourself.
+npm run db:deploy                        # creates/updates the tables in the database your .env points to (use this with Supabase)
+                                         # npm run db:migrate is only for developing the schema against a local Postgres
 npm run db:seed                          # owner account + demo data (Sunrise Residency, rooms 101-105, 3 tenants, bills, payments)
 
 npm run backend                          # API on http://localhost:3000   (GET /health)
@@ -67,7 +69,7 @@ reading into **Previous** on Generate Bill. Run it on the machine that holds you
 ### Supabase (PostgreSQL)
 1. Create a project. Settings > Database > Connection string.
 2. `DATABASE_URL` = the **pooled** string (port 6543, add `?pgbouncer=true&connection_limit=1`), `DIRECT_URL` = the **direct** string (port 5432).
-3. Run migrations once from your machine (or CI): `npm run -w @rental/backend prisma:deploy`.
+3. Run migrations once from your machine (or CI): `npm run db:deploy`. Both `DATABASE_URL` and `DIRECT_URL` must be in `.env`; if you are not using the pooled URL, set both to the same connection string.
 4. `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are reserved for future Supabase features; the app talks to Postgres through Prisma only.
    Keep the service-role key on the server. Do not enable public API access to these tables (the API is the only client).
 

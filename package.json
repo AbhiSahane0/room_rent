@@ -17,6 +17,8 @@
     "test": "npm run -ws --if-present test",
     "db:import": "npm run -w @rental/backend prisma:import --",
     "web:build": "npm run -w @rental/mobile web:build",
-    "web": "npm run -w @rental/mobile web"
+    "web": "npm run -w @rental/mobile web",
+    "db:deploy": "npm run -w @rental/backend prisma:deploy",
+    "db:status": "npm run -w @rental/backend prisma:status"
   }
 }

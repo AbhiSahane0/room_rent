@@ -3,7 +3,7 @@
  * Demo data is created through the real services, so bills, balances and payments obey
  * exactly the same rules as the app. Safe to run repeatedly: it skips if the demo property exists.
  */
-import 'dotenv/config';
+import './load-env';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { PaymentMethod } from '@prisma/client';

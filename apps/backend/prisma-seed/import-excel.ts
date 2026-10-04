@@ -8,7 +8,7 @@
  * each tenant's opening balance, and the sheet's "Monthly Payment" is checked against what the app calculates.
  * Safe to re-run: it stops if the property already exists. Phone numbers are not in the sheet and are left empty.
  */
-import 'dotenv/config';
+import './load-env';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import * as argon2 from 'argon2';

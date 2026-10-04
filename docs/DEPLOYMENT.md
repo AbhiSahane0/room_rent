@@ -6,7 +6,7 @@ Do the steps in this order. Each step gives you a value the next one needs.
 1. Create a project. Settings > Database > Connection string.
 2. Copy the **pooled** string (port 6543) and add `?pgbouncer=true&connection_limit=1` -> this is `DATABASE_URL`.
 3. Copy the **direct** string (port 5432) -> this is `DIRECT_URL`.
-4. From your computer (where your `.env` has these two values): `npm install && npm run db:deploy`.
+4. Put both values in `apps/backend/.env` (or a `.env` at the repo root) on your computer, then run `npm install && npm run db:deploy`. Supabase is the PostgreSQL database, so you do not install Postgres. Use `db:deploy`, not `db:migrate` (that one is for local schema development).
 5. Create the owner login and import your Excel register (see README "Import an existing Excel register"):
    `npm run db:import -- /path/RENT.xlsx --dry-run`, then without `--dry-run`.
    Set `SEED_ADMIN_USERNAME` and a strong `SEED_ADMIN_PASSWORD` (12+ characters) first.
