@@ -6,13 +6,26 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/common/prisma.service';
+import { STORAGE, StorageProvider } from '../src/storage/storage.service';
+
+/** In-memory storage so tests never touch disk or the network. */
+export class MemoryStorage implements StorageProvider {
+  objects = new Map<string, { body: Buffer; contentType: string }>();
+  async put(key: string, body: Buffer, contentType: string) { this.objects.set(key, { body, contentType }); }
+  async signedUrl(key: string, opts: { ttlSeconds: number }) {
+    const expiresAt = new Date(Date.now() + opts.ttlSeconds * 1000);
+    return { url: `https://storage.test/${key}?expires=${expiresAt.getTime()}`, expiresAt };
+  }
+  async delete(key: string) { this.objects.delete(key); }
+}
 
 export async function createTestApp() {
-  const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const storage = new MemoryStorage();
+  const mod = await Test.createTestingModule({ imports: [AppModule] }).overrideProvider(STORAGE).useValue(storage).compile();
   const app = mod.createNestApplication<NestExpressApplication>();
   configureApp(app);
   await app.init();
-  return { app, prisma: app.get(PrismaService) };
+  return { app, prisma: app.get(PrismaService), storage };
 }
 
 /** Wipes every table (TRUNCATE bypasses the append-only row triggers on purpose). */

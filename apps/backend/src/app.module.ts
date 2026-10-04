@@ -13,6 +13,8 @@ import { PropertiesModule } from './properties/properties.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { AssignmentsModule } from './assignments/assignments.module';
 import { TenantsModule } from './tenants/tenants.module';
+import { StorageModule } from './storage/storage.module';
+import { DocumentsModule } from './documents/documents.module';
 
 @Controller('health')
 class HealthController {
@@ -35,6 +37,8 @@ class HealthController {
     RoomsModule,
     AssignmentsModule,
     TenantsModule,
+    StorageModule,
+    DocumentsModule,
   ],
   controllers: [HealthController],
   providers: [
