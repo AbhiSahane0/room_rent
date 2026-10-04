@@ -51,7 +51,7 @@ export class ReportsService {
     const [billed, collected, byMethod, outstanding, trend] = await Promise.all([
       this.prisma.bill.findMany({
         where: { propertyId: { in: propertyIds }, billingPeriod: start, status: { notIn: ['CANCELLED', 'DRAFT'] } },
-        select: { totalDue: true, previousBalance: true },
+        select: { totalDue: true, previousBalance: true, rentAmount: true, electricityAmount: true, otherChargesAmount: true },
       }),
       this.prisma.payment.aggregate({ where: { bill: { propertyId: { in: propertyIds } }, paymentDate: { gte: start, lte: end } }, _sum: { amount: true }, _count: true }),
       this.prisma.payment.groupBy({ by: ['method'], where: { bill: { propertyId: { in: propertyIds } }, paymentDate: { gte: start, lte: end } }, _sum: { amount: true }, _count: true }),
@@ -61,7 +61,10 @@ export class ReportsService {
     // "Expected" is this month's own charges, not the arrears that were rolled into them.
     const expected = fromPaise(billed.reduce((s, b) => s + toPaise(num(b.totalDue)) - toPaise(num(b.previousBalance)), 0));
     const collectedAmount = num(collected._sum.amount);
+    const sumOf = (pick: (b: (typeof billed)[number]) => Prisma.Decimal) => fromPaise(billed.reduce((s, b) => s + toPaise(num(pick(b))), 0));
     return {
+      /** What this month's bills are made of (rent, electricity, other charges), excluding carried-over arrears. */
+      composition: { rent: sumOf((b) => b.rentAmount), electricity: sumOf((b) => b.electricityAmount), other: sumOf((b) => b.otherChargesAmount), bills: billed.length },
       month,
       monthLabel: monthLabel(start),
       expected,
@@ -142,7 +145,47 @@ export class ReportsService {
         };
       })
       .sort((a, b) => b.balance - a.balance);
-    return { total: fromPaise(items.reduce((s, i) => s + toPaise(i.balance), 0)), count: items.length, items };
+    // Who owes it, and how late: lets the dashboard separate current tenants from people who have moved out.
+    const sumBills = (list: typeof open) => fromPaise(list.reduce((s, b) => s + toPaise(b.balance), 0));
+    const tenantsIn = (list: typeof open) => new Set(list.map((b) => b.tenantId)).size;
+    const former = open.filter((b) => b.tenant.status !== 'ACTIVE');
+    const current = open.filter((b) => b.tenant.status === 'ACTIVE');
+    const overdue = open.filter((b) => b.dueDate < today);
+    const dueSoon = open.filter((b) => b.dueDate >= today && b.dueDate.getTime() - today.getTime() <= 7 * MS_DAY);
+    const oldest = former.reduce<Date | null>((m, b) => (!m || b.dueDate < m ? b.dueDate : m), null);
+    const stats = {
+      currentTenants: { amount: sumBills(current), count: tenantsIn(current) },
+      formerTenants: { amount: sumBills(former), count: tenantsIn(former), oldestDue: oldest },
+      overdue: { amount: sumBills(overdue), count: tenantsIn(overdue) },
+      dueSoon: { amount: sumBills(dueSoon), count: tenantsIn(dueSoon) },
+    };
+    return { total: fromPaise(items.reduce((s, i) => s + toPaise(i.balance), 0)), count: items.length, items, stats };
+  }
+
+  /** Smaller numbers the Home screen shows next to the big ones. All run in parallel with the other dashboard queries. */
+  async extrasFor(propertyIds: string[]) {
+    const today = todayUtc();
+    const thisMonth = ymOf(today);
+    const week = new Date(today.getTime() - 6 * MS_DAY);
+    const inProperty = { room: { propertyId: { in: propertyIds } } };
+    const [rentRoll, lastWeek, recent, toBill] = await Promise.all([
+      this.prisma.roomAssignment.aggregate({ where: { status: 'ACTIVE', ...inProperty }, _sum: { agreedRent: true }, _count: true }),
+      this.prisma.payment.aggregate({ where: { bill: { propertyId: { in: propertyIds } }, paymentDate: { gte: week, lte: today } }, _sum: { amount: true }, _count: true }),
+      this.prisma.payment.findMany({
+        relationLoadStrategy: 'join',
+        where: { bill: { propertyId: { in: propertyIds } } },
+        orderBy: [{ paymentDate: 'desc' }, { createdAt: 'desc' }],
+        take: 5,
+        select: { id: true, amount: true, paymentDate: true, method: true, billId: true, tenant: { select: { id: true, fullName: true } }, bill: { select: { room: { select: { roomNumber: true } } } } },
+      }),
+      this.prisma.roomAssignment.count({ where: { status: 'ACTIVE', ...inProperty, bills: { none: { billingPeriod: bounds(thisMonth).start, status: { notIn: ['CANCELLED'] } } } } }),
+    ]);
+    return {
+      rentRoll: { monthly: num(rentRoll._sum.agreedRent), tenants: rentRoll._count },
+      last7Days: { amount: num(lastWeek._sum.amount), count: lastWeek._count },
+      recentPayments: recent.map((p) => ({ id: p.id, amount: num(p.amount), paymentDate: p.paymentDate, method: p.method, billId: p.billId, tenantId: p.tenant.id, tenantName: p.tenant.fullName, roomNumber: p.bill.room.roomNumber })),
+      toBill: { month: thisMonth, monthLabel: monthLabel(bounds(thisMonth).start), count: toBill },
+    };
   }
 
   async occupancy(userId: string, q: { propertyId?: string }) {

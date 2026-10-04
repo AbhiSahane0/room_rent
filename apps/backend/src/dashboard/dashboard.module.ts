@@ -21,7 +21,7 @@ export class DashboardService {
 
     // `selected` comes from the user's own property list above, so the ownership re-check inside each report is skipped.
     const ids = [selected.id];
-    const [collection, occupancy, outstanding] = await Promise.all([this.reports.collectionFor(ids, q.month), this.reports.occupancyFor(ids), this.reports.outstandingFor(ids)]);
+    const [collection, occupancy, outstanding, extras] = await Promise.all([this.reports.collectionFor(ids, q.month), this.reports.occupancyFor(ids), this.reports.outstandingFor(ids), this.reports.extrasFor(ids)]);
     const { month, monthLabel, expected, collected, paymentCount, pending, collectionRate } = collection;
     return {
       username: user.username,
@@ -31,6 +31,18 @@ export class DashboardService {
       occupancy: { totalRooms: occupancy.totalRooms, occupied: occupancy.occupied, vacant: occupancy.vacant, maintenance: occupancy.maintenance, occupancyPercent: occupancy.occupancyPercent },
       pendingPayments: outstanding.items.slice(0, 5),
       pendingCount: outstanding.count,
+      /** People who have moved out but still owe money, largest first. */
+      formerTenantDues: outstanding.items.filter((i) => i.tenantStatus !== 'ACTIVE').slice(0, 5),
+      kpis: {
+        composition: collection.composition,
+        trend: collection.trend,
+        dues: { total: outstanding.total, ...outstanding.stats },
+        rentRoll: extras.rentRoll,
+        vacancy: { rooms: occupancy.vacant, lostRent: occupancy.vacantRentPotential, rentableOccupancyPercent: occupancy.rentableOccupancyPercent },
+        last7Days: extras.last7Days,
+        toBill: extras.toBill,
+      },
+      recentPayments: extras.recentPayments,
     };
   }
 }

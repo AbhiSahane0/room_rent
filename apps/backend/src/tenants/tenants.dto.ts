@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { TenantStatus } from '@prisma/client';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, MaxLength, ValidateNested } from 'class-validator';
+import { IsEmail, IsEnum, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, MaxLength, ValidateNested } from 'class-validator';
 import { AssignmentTermsDto } from '../assignments/assignments.dto';
 import { NormalizePhone, PHONE_REGEX, Trim } from '../common/transforms';
 import { PaginationQuery } from '../common/pagination';
@@ -44,4 +44,6 @@ export class UpdateTenantDto {
 export class ListTenantsQuery extends PaginationQuery {
   @IsOptional() @IsUUID() propertyId?: string;
   @IsOptional() @IsEnum(TenantStatus) status?: TenantStatus;
+  /** 'true': only tenants who owe money (including people who have moved out). */
+  @IsOptional() @IsIn(['true', 'false']) dues?: string;
 }

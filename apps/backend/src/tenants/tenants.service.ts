@@ -38,6 +38,8 @@ export class TenantsService {
       propertyId: { in: propertyIds },
       deletedAt: null,
       ...(q.status ? { status: q.status } : {}),
+      // An open bill (unpaid or part paid, not rolled into a later bill) means the tenant owes money.
+      ...(q.dues === 'true' ? { bills: { some: { status: { in: ['GENERATED' as const, 'PARTIALLY_PAID' as const] }, carriedForwardToId: null } } } : {}),
       ...(search
         ? {
             OR: [

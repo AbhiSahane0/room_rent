@@ -237,8 +237,41 @@ export interface DashboardData {
   property: { id: string; name: string; city: string; state: string } | null;
   collection: { month: string; monthLabel: string; expected: number; collected: number; paymentCount: number; pending: number; collectionRate: number } | null;
   occupancy: { totalRooms: number; occupied: number; vacant: number; maintenance: number; occupancyPercent: number } | null;
-  pendingPayments: PendingPayment[];
+  pendingPayments: (PendingPayment & { tenantStatus?: TenantStatus })[];
   pendingCount?: number;
+  /** People who have moved out but still owe money, largest first. */
+  formerTenantDues?: (PendingPayment & { tenantStatus: TenantStatus })[];
+  kpis?: DashboardKpis;
+  recentPayments?: RecentPayment[];
+}
+
+export interface DashboardKpis {
+  /** What this month's bills are made of, excluding arrears carried in. */
+  composition: { rent: number; electricity: number; other: number; bills: number };
+  trend: { month: string; label: string; expected: number; collected: number }[];
+  dues: {
+    total: number;
+    currentTenants: { amount: number; count: number };
+    formerTenants: { amount: number; count: number; oldestDue: string | null };
+    overdue: { amount: number; count: number };
+    dueSoon: { amount: number; count: number };
+  };
+  rentRoll: { monthly: number; tenants: number };
+  vacancy: { rooms: number; lostRent: number; rentableOccupancyPercent: number };
+  last7Days: { amount: number; count: number };
+  /** Active tenants with no bill yet for the current calendar month. */
+  toBill: { month: string; monthLabel: string; count: number };
+}
+
+export interface RecentPayment {
+  id: string;
+  amount: number;
+  paymentDate: string;
+  method: PaymentMethod;
+  billId: string;
+  tenantId: string;
+  tenantName: string;
+  roomNumber: string;
 }
 
 export interface CollectionReport {
@@ -268,4 +301,10 @@ export interface OutstandingReport {
   total: number;
   count: number;
   items: (PendingPayment & { tenantStatus: TenantStatus })[];
+  stats?: {
+    currentTenants: { amount: number; count: number };
+    formerTenants: { amount: number; count: number; oldestDue: string | null };
+    overdue: { amount: number; count: number };
+    dueSoon: { amount: number; count: number };
+  };
 }

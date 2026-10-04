@@ -119,4 +119,38 @@ describe('Dashboard & reports (e2e)', () => {
     await owner.get('/reports/collection?month=2026-13').expect(400);
     await owner.get('/reports/collection?propertyId=nope').expect(400);
   });
+
+  it('separates what former tenants still owe from current dues, with overdue and KPI figures', async () => {
+    const rooms = (await owner.get(`/rooms?propertyId=${propertyId}&status=VACANT`)).body.data.items as { id: string; roomNumber: string }[];
+    const room = rooms.find((r) => r.roomNumber === '103')!;
+    const t = (await owner.post('/tenants', { fullName: 'Left Behind', phone: '9000000099', joiningDate: '2026-06-01', assignment: { roomId: room.id, startDate: '2026-06-01', agreedRent: 3000 } })).body.data;
+    await owner.post('/bills', { assignmentId: t.currentAssignment.id, billingPeriod: '2026-09', dueDate: '2026-09-10' }).expect(201);
+    await owner.post(`/room-assignments/${t.currentAssignment.id}/move-out`, { moveOutDate: '2026-09-30' }).expect(200);
+
+    const d = (await owner.get(`/dashboard?propertyId=${propertyId}&month=2026-09`).expect(200)).body.data;
+    expect(d.kpis.dues.total).toBe(7000); // Rahul 4000 + the tenant who left 3000
+    expect(d.kpis.dues.currentTenants).toMatchObject({ amount: 4000, count: 1 });
+    expect(d.kpis.dues.formerTenants).toMatchObject({ amount: 3000, count: 1 });
+    expect(d.kpis.dues.overdue).toMatchObject({ amount: 7000, count: 2 }); // both due dates have passed
+    expect(d.formerTenantDues).toHaveLength(1);
+    expect(d.formerTenantDues[0]).toMatchObject({ fullName: 'Left Behind', balance: 3000, tenantStatus: 'MOVED_OUT' });
+    expect(d.pendingPayments.map((p: { fullName: string }) => p.fullName)).toContain('Left Behind');
+    expect(d.kpis.composition).toMatchObject({ rent: 17000, bills: 3 }); // Rahul 9000 + Amit 5000 + the tenant who left 3000
+    expect(d.kpis.rentRoll).toMatchObject({ tenants: 2 });
+    expect(d.kpis.vacancy.lostRent).toBeGreaterThan(0);
+    expect(d.kpis.trend).toHaveLength(6);
+    expect(d.recentPayments[0]).toMatchObject({ tenantName: expect.any(String), roomNumber: expect.any(String) });
+    expect(d.kpis.toBill.count).toBeGreaterThanOrEqual(0);
+
+    const names = async (qs: string) => ((await owner.get(`/tenants?propertyId=${propertyId}&${qs}`).expect(200)).body.data.items as { fullName: string }[]).map((x) => x.fullName).sort();
+    expect(await names('dues=true')).toEqual(['Left Behind', 'Rahul Sharma']);
+    expect(await names('status=MOVED_OUT&dues=true')).toEqual(['Left Behind']);
+
+    // The money can still be collected after move-out.
+    const open = (await owner.get(`/tenants/${t.id}/open-bill`)).body.data;
+    await owner.post(`/bills/${open.id}/payments`, { amount: 3000, paymentDate: '2026-10-01', method: 'CASH' }).expect(201);
+    const after = (await owner.get(`/dashboard?propertyId=${propertyId}&month=2026-09`)).body.data;
+    expect(after.kpis.dues.formerTenants).toMatchObject({ amount: 0, count: 0 });
+    expect(after.formerTenantDues).toEqual([]);
+  });
 });

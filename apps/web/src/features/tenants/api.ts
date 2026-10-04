@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { api } from '@/api/client';
 import type { Paginated, TenantDetail, TenantListItem, TenantStatus } from '@rental/shared';
 
-export interface TenantFilters { propertyId?: string; status?: TenantStatus; search?: string }
+export interface TenantFilters { propertyId?: string; status?: TenantStatus; search?: string; dues?: 'true' }
 
 const qs = (o: Record<string, string | number | undefined>) =>
   Object.entries(o).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join('&');

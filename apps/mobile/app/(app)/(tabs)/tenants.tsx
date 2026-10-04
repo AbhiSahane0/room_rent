@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Plus, Search, Users } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Chip, EmptyState, ErrorState, Fab, Input, SkeletonList, Text } from '@/components/ui';
 import { useDebounced } from '@/hooks/useDebounced';
@@ -13,16 +13,19 @@ import { TenantCard } from '@/features/tenants/TenantCard';
 import { colors } from '@/theme';
 import type { TenantStatus } from '@/types/api';
 
-const FILTERS: { label: string; value?: TenantStatus }[] = [{ label: 'All' }, { label: 'Active', value: 'ACTIVE' }, { label: 'Moved out', value: 'MOVED_OUT' }];
+const FILTERS: { label: string; status?: TenantStatus; dues?: 'true' }[] = [
+  { label: 'All' }, { label: 'Active', status: 'ACTIVE' }, { label: 'Moved out', status: 'MOVED_OUT' }, { label: 'Owes money', dues: 'true' }, { label: 'Left with dues', status: 'MOVED_OUT', dues: 'true' },
+];
 
 export default function TenantsScreen() {
   const router = useRouter();
   const { listProps, cell } = useListLayout(96);
   const { current, isLoading: loadingProps } = useProperty();
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<TenantStatus | undefined>();
+  const [filter, setFilter] = useState(FILTERS[0]);
+  const status = filter.status;
   const debounced = useDebounced(search.trim());
-  const q = useTenants({ propertyId: current?.id, status, search: debounced || undefined });
+  const q = useTenants({ propertyId: current?.id, status, dues: filter.dues, search: debounced || undefined });
   const tenants = useMemo(() => q.data?.pages.flatMap((p) => p.items) ?? [], [q.data]);
   const total = q.data?.pages[0]?.total ?? 0;
 
@@ -33,9 +36,9 @@ export default function TenantsScreen() {
         <PropertySwitcher />
       </View>
       <Input icon={Search} placeholder="Search name, phone or room..." value={search} onChangeText={setSearch} returnKeyType="search" autoCorrect={false} />
-      <View className="flex-row gap-2">
-        {FILTERS.map((f) => <Chip key={f.label} label={f.label} selected={status === f.value} onPress={() => setStatus(f.value)} />)}
-      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2" className="flex-grow-0">
+        {FILTERS.map((f) => <Chip key={f.label} label={f.label} selected={filter === f} onPress={() => setFilter(f)} />)}
+      </ScrollView>
       {q.data && total > 0 ? <Text variant="secondary" tone="muted">{total} {total === 1 ? 'tenant' : 'tenants'}</Text> : null}
     </View>
   );
@@ -45,7 +48,7 @@ export default function TenantsScreen() {
   else if (!current) body = <EmptyState icon={Users} title="Add a property first" message="Tenants belong to a property. Create your first property to continue." actionLabel="Add Property" actionIcon={Plus} onAction={() => router.push('/properties/form')} />;
   else if (q.isError) body = <ErrorState error={q.error} onRetry={q.refetch} />;
   else if (tenants.length === 0) {
-    body = debounced || status
+    body = debounced || filter !== FILTERS[0]
       ? <EmptyState icon={Search} title="No tenants found" message="Try a different search or filter." />
       : <EmptyState icon={Users} title="No tenants yet" message="Add your first tenant to start managing rent and bills." actionLabel="Add Tenant" actionIcon={Plus} onAction={() => router.push('/tenants/new')} />;
   }
