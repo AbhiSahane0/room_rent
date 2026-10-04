@@ -121,6 +121,10 @@ The PDF fonts live in `apps/backend/assets/fonts`; deploy that folder alongside 
 First production run: set `SEED_ADMIN_USERNAME` and a strong `SEED_ADMIN_PASSWORD` (12+ chars), then `npm run -w @rental/backend prisma:seed:admin`.
 Production never seeds demo data.
 
+**Forgot the password, or login says "Incorrect username or password"?** The account keeps whatever `SEED_ADMIN_PASSWORD` was in `apps/backend/.env` when it was first created. Set `SEED_ADMIN_USERNAME` and `SEED_ADMIN_PASSWORD` in `apps/backend/.env` and run `npm run db:reset-password`; it updates that account's password and signs out all sessions.
+
+**Row Level Security** is enabled on every table by migration `20261006000000_enable_rls` (run `npm run db:deploy`). The API connects as the database owner and is unaffected; Supabase's public REST API (`anon`/`authenticated`) can no longer read or write anything.
+
 ## 6. Web app (laptop and phone browsers, installable on iPhone)
 
 `apps/web` is a separate website (Vite + React + Tailwind) that talks to the same API as the phone app, so iPhone users do not need the App Store.

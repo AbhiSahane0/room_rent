@@ -33,9 +33,15 @@ async function main() {
   }
   let user = await prisma.user.findFirst({ where: { username: { equals: username, mode: 'insensitive' } } });
   if (!user) user = await prisma.user.create({ data: { username, passwordHash: await argon2.hash(password, { type: argon2.argon2id }) } });
+  else if (process.argv.includes('--reset-password')) {
+    // Recovery path when the password is forgotten: sets SEED_ADMIN_PASSWORD, re-enables the account and signs out every session.
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await argon2.hash(password, { type: argon2.argon2id }), isActive: true } });
+    await prisma.session.deleteMany({ where: { userId: user.id } });
+    console.log('Password reset from SEED_ADMIN_PASSWORD; all sessions signed out.');
+  }
   console.log(`Owner account ready: ${user.username}`);
 
-  if (process.env.NODE_ENV === 'production' || process.argv.includes('--admin-only')) return void (await app.close());
+  if (process.env.NODE_ENV === 'production' || process.argv.includes('--admin-only') || process.argv.includes('--reset-password')) return void (await app.close());
   if (await prisma.property.findFirst({ where: { ownerId: user.id, name: 'Sunrise Residency' } })) {
     console.log('Demo data already present, skipping.');
     return void (await app.close());

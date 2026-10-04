@@ -15,6 +15,7 @@
     "typecheck": "npm run -ws --if-present typecheck",
     "lint": "npm run -ws --if-present lint",
     "test": "npm run -ws --if-present test",
+    "db:reset-password": "npm run -w @rental/backend prisma:reset-password",
     "db:import": "npm run -w @rental/backend prisma:import --",
     "web:build": "npm run -w @rental/web build",
     "web": "npm run -w @rental/web dev",

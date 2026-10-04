@@ -14,11 +14,13 @@
     "prisma:deploy": "node scripts/prisma.js migrate deploy",
     "prisma:seed": "ts-node prisma-seed/seed.ts",
     "prisma:seed:admin": "ts-node prisma-seed/seed.ts --admin-only",
+    "prisma:reset-password": "ts-node prisma-seed/seed.ts --reset-password",
     "prisma:import": "ts-node prisma-seed/import-excel.ts",
     "prisma:status": "node scripts/prisma.js migrate status",
     "postinstall": "node scripts/prisma.js generate",
     "preprisma:import": "node scripts/prisma.js generate",
     "preprisma:seed": "node scripts/prisma.js generate",
+    "preprisma:reset-password": "node scripts/prisma.js generate",
     "preprisma:seed:admin": "node scripts/prisma.js generate",
     "prestart:dev": "node scripts/prisma.js generate"
   },
