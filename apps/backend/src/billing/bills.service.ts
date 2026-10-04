@@ -7,6 +7,7 @@ import { paginate, skipTake } from '../common/pagination';
 import { PrismaService } from '../common/prisma.service';
 import { PropertiesService } from '../properties/properties.service';
 import { renderBillPdf } from './bill-pdf';
+import { renderBillPremiumPdf } from './bill-premium-pdf';
 import { renderBillStatementPdf } from './bill-statement-pdf';
 import { calculateBill, calculateElectricity, fromPaise, rentForPeriod, toPaise } from './bill-calculator';
 import { CreateBillDto, ListBillsQuery, PreviewBillDto, RecurringChargeDto } from './bills.dto';
@@ -143,7 +144,8 @@ export class BillsService {
       suggestedPeriod,
       dueDate: draft.dueDate,
       rent: draft.rent,
-      electricity: { ...draft.electricity, needsReading },
+      // `defaultRatePerUnit` is the rate stored for this stay, so a one-off override typed in the bill form can be told apart from it.
+      electricity: { ...draft.electricity, needsReading, defaultRatePerUnit: a.electricityMode === 'METER' ? money(a.ratePerUnit ?? a.room.ratePerUnit ?? a.room.property.defaultRatePerUnit) : null },
       charges: draft.charges,
       totals: draft.totals,
       carriedBills: draft.carry,
@@ -291,11 +293,12 @@ export class BillsService {
   }
 
   /** `statement` (default) is the owner's one-table rent form; `invoice` is the formal A4 invoice. */
-  async pdf(userId: string, id: string, format: 'statement' | 'invoice' = 'statement') {
+  /** `premium` (default) is the designed A4 bill; `statement` is the one-table form from the owner's spreadsheet; `invoice` the plain formal invoice. */
+  async pdf(userId: string, id: string, format: 'premium' | 'statement' | 'invoice' = 'premium') {
     const bill = await this.get(userId, id);
-    const property = await this.prisma.property.findUniqueOrThrow({ where: { id: bill.property.id }, select: { billFooterNote: true } });
+    const property = await this.prisma.property.findUniqueOrThrow({ where: { id: bill.property.id }, select: { billFooterNote: true, upiId: true } });
     try {
-      const render = format === 'invoice' ? renderBillPdf : renderBillStatementPdf;
+      const render = format === 'invoice' ? renderBillPdf : format === 'statement' ? renderBillStatementPdf : renderBillPremiumPdf;
       const buffer = await render({
         ...bill,
         status: bill.storedStatus,
@@ -305,7 +308,7 @@ export class BillsService {
         payments: bill.payments.map((p) => ({ paymentDate: p.paymentDate, method: p.method, reference: p.reference, amount: money(p.amount) })),
         rentAmount: money(bill.rentAmount), electricityAmount: money(bill.electricityAmount), otherChargesAmount: money(bill.otherChargesAmount),
         lateFee: money(bill.lateFee), discount: money(bill.discount), previousBalance: money(bill.previousBalance), totalDue: money(bill.totalDue), paidAmount: money(bill.paidAmount),
-        property: { ...bill.property, billFooterNote: property.billFooterNote },
+        property: { ...bill.property, billFooterNote: property.billFooterNote, upiId: property.upiId },
       });
       await this.audit.log(userId, 'bill.pdf', 'bill', id);
       return { buffer, fileName: `Invoice-${bill.billNumber}.pdf` };

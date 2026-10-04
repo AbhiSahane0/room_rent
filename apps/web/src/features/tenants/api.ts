@@ -55,3 +55,12 @@ export function useChangeRent(assignmentId: string) {
     onSuccess: invalidate,
   });
 }
+
+export interface ElectricityTerms { electricityMode?: 'METER' | 'FIXED' | 'NONE'; ratePerUnit?: number; fixedElectricity?: number; applyToRoom?: boolean }
+export function useChangeElectricity(assignmentId: string) {
+  const invalidate = useInvalidateCore();
+  return useMutation({
+    mutationFn: (body: ElectricityTerms) => api.post(`/room-assignments/${assignmentId}/electricity`, body),
+    onSuccess: invalidate,
+  });
+}

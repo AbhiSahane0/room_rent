@@ -28,6 +28,15 @@ export class MoveOutDto {
   @IsOptional() @IsString() @MaxLength(500) notes?: string;
 }
 
+/** Electricity terms for a tenant's stay. They apply to bills generated afterwards; existing bills are never touched. */
+export class ChangeElectricityDto {
+  @IsOptional() @IsEnum(ElectricityMode) electricityMode?: ElectricityMode;
+  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) ratePerUnit?: number;
+  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) fixedElectricity?: number;
+  /** Also make this the default rate of the room (for the next tenant). */
+  @IsOptional() applyToRoom?: boolean;
+}
+
 export class ChangeRentDto {
   @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) amount: number;
   /** Rent applies from the month containing this date. */

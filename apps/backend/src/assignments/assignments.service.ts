@@ -4,7 +4,7 @@ import { AuditService } from '../common/audit.service';
 import { isoDate, monthStart, parseDate } from '../common/dates';
 import { outstandingByTenant } from '../common/outstanding';
 import { PrismaService } from '../common/prisma.service';
-import { AssignmentTermsDto, ChangeRentDto, CreateAssignmentDto, MoveOutDto } from './assignments.dto';
+import { AssignmentTermsDto, ChangeElectricityDto, ChangeRentDto, CreateAssignmentDto, MoveOutDto } from './assignments.dto';
 
 type Tx = Prisma.TransactionClient;
 
@@ -120,6 +120,33 @@ export class AssignmentsService {
     });
     await this.audit.log(userId, 'assignment.rent_change', 'room_assignment', id, { amount: dto.amount, effectiveFrom: isoDate(effectiveFrom) });
     return this.rentHistory(userId, id);
+  }
+
+  /** Sets the per-unit rate (or fixed amount) used for this stay's future bills; optionally also the room's default. */
+  async changeElectricity(userId: string, id: string, dto: ChangeElectricityDto) {
+    const a = await this.ownedAssignment(userId, id);
+    if (a.status !== 'ACTIVE') throw new ConflictException('Electricity terms can only be changed for an active assignment');
+    const mode = dto.electricityMode ?? a.electricityMode;
+    if (mode === 'METER' && dto.ratePerUnit == null && a.ratePerUnit == null) throw new BadRequestException('Enter the rate per unit');
+    if (mode === 'FIXED' && dto.fixedElectricity == null && a.fixedElectricity == null) throw new BadRequestException('Enter the fixed electricity amount');
+    const data: Prisma.RoomAssignmentUpdateInput = {
+      electricityMode: mode,
+      ratePerUnit: mode === 'METER' ? dto.ratePerUnit ?? a.ratePerUnit : null,
+      fixedElectricity: mode === 'FIXED' ? dto.fixedElectricity ?? a.fixedElectricity : null,
+      // A meter stay needs a starting reading to bill from.
+      ...(mode === 'METER' && a.initialMeterReading == null ? { initialMeterReading: 0 } : {}),
+    };
+    await this.prisma.$transaction(async (tx) => {
+      await tx.roomAssignment.update({ where: { id }, data });
+      if (dto.applyToRoom) {
+        await tx.room.update({
+          where: { id: a.roomId },
+          data: { electricityMode: mode, ratePerUnit: mode === 'METER' ? dto.ratePerUnit ?? a.ratePerUnit : null, fixedElectricity: mode === 'FIXED' ? dto.fixedElectricity ?? a.fixedElectricity : null },
+        });
+      }
+    });
+    await this.audit.log(userId, 'assignment.electricity_change', 'room_assignment', id, { mode, ratePerUnit: dto.ratePerUnit, fixed: dto.fixedElectricity });
+    return this.prisma.roomAssignment.findUniqueOrThrow({ where: { id } });
   }
 
   async rentHistory(userId: string, id: string) {

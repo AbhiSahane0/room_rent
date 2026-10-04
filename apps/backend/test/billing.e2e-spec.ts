@@ -39,6 +39,21 @@ describe('Billing (e2e)', () => {
     ...extra,
   });
 
+  it('uses the stay\'s own rate, a one-off rate for a single bill, and a changed rate afterwards', async () => {
+    // Default: the room's rate of 8 per unit.
+    expect((await owner.post('/bills/preview', septemberBody()).expect(200)).body.data.electricity).toMatchObject({ ratePerUnit: 8, amount: 1200 });
+    // One bill only: the typed rate wins and nothing is stored on the stay.
+    expect((await owner.post('/bills/preview', septemberBody({ electricity: { currentReading: 1350, ratePerUnit: 10 } })).expect(200)).body.data.electricity).toMatchObject({ ratePerUnit: 10, amount: 1500 });
+    expect((await owner.post('/bills/preview', septemberBody()).expect(200)).body.data.electricity.ratePerUnit).toBe(8);
+    // A change on the stay applies to later bills; the room keeps its own default unless asked.
+    await owner.post(`/room-assignments/${assignmentId}/electricity`, { ratePerUnit: 11 }).expect(200);
+    expect((await owner.post('/bills/preview', septemberBody()).expect(200)).body.data.electricity).toMatchObject({ ratePerUnit: 11, amount: 1650 });
+    expect(Number((await owner.get(`/rooms/${roomId}`)).body.data.ratePerUnit)).toBe(8);
+    await owner.post(`/room-assignments/${assignmentId}/electricity`, { ratePerUnit: 8, applyToRoom: true }).expect(200);
+    await owner.post(`/room-assignments/${assignmentId}/electricity`, { ratePerUnit: -1 }).expect(400);
+    await other.post(`/room-assignments/${assignmentId}/electricity`, { ratePerUnit: 1 }).expect(404);
+  });
+
   it('previews a bill with server-calculated totals (spec example: 9,900)', async () => {
     const res = await owner.post('/bills/preview', septemberBody()).expect(200);
     const d = res.body.data;

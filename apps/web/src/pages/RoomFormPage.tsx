@@ -29,12 +29,16 @@ export function RoomFormPage() {
   const roomQuery = useRoom(id);
   const save = useSaveRoom(id);
   const [error, setError] = useState<string | null>(null);
-  const { register, control, handleSubmit, reset, setError: setFieldError, formState: { errors } } = useForm<Form>({
+  const { register, control, handleSubmit, reset, setValue, getValues, setError: setFieldError, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),
     defaultValues: { roomNumber: '', floor: '', defaultRent: '', electricityMode: 'METER', ratePerUnit: '', fixedElectricity: '', status: 'VACANT', notes: '' },
   });
   const mode = useWatch({ control, name: 'electricityMode' });
   const room = roomQuery.data;
+  // A new room starts with the property's default rate, which you can change for this room.
+  useEffect(() => {
+    if (!id && current && getValues('ratePerUnit') === '') setValue('ratePerUnit', String(current.defaultRatePerUnit));
+  }, [id, current, getValues, setValue]);
   useEffect(() => {
     if (room) reset({
       roomNumber: room.roomNumber, floor: room.floor ?? '', defaultRent: String(room.defaultRent), electricityMode: room.electricityMode,
@@ -72,7 +76,7 @@ export function RoomFormPage() {
         <Field label="Electricity">
           <Controller control={control} name="electricityMode" render={({ field }) => <Segmented value={field.value} onChange={field.onChange} options={[{ value: 'METER', label: 'Meter' }, { value: 'FIXED', label: 'Fixed' }, { value: 'NONE', label: 'None' }]} />} />
         </Field>
-        {mode === 'METER' ? <MoneyInput label="Rate per Unit" hint="Charged per unit (kWh) of meter reading" error={errors.ratePerUnit?.message} {...register('ratePerUnit')} /> : null}
+        {mode === 'METER' ? <MoneyInput label="Rate per Unit" hint={`Each room can have its own rate. New rooms start at the property's default${current ? ` (₹${current.defaultRatePerUnit})` : ''}.`} error={errors.ratePerUnit?.message} {...register('ratePerUnit')} /> : null}
         {mode === 'FIXED' ? <MoneyInput label="Fixed Monthly Electricity" error={errors.fixedElectricity?.message} {...register('fixedElectricity')} /> : null}
         {id && room?.status !== 'OCCUPIED' ? <Select label="Status" options={[{ value: 'VACANT', label: 'Vacant' }, { value: 'MAINTENANCE', label: 'Maintenance' }]} {...register('status')} /> : null}
         <Textarea label="Notes (optional)" placeholder="Furnishing, meter number, etc." {...register('notes')} />

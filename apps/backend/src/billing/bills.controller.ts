@@ -35,7 +35,7 @@ export class BillsController {
   @Get('bills/:id/pdf')
   @Throttle({ default: { limit: 40, ttl: 60_000 } })
   async pdf(@CurrentUser() u: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Query('download') download?: string, @Query('format') format?: string) {
-    const { buffer, fileName } = await this.service.pdf(u.userId, id, format === 'invoice' ? 'invoice' : 'statement');
+    const { buffer, fileName } = await this.service.pdf(u.userId, id, format === 'invoice' ? 'invoice' : format === 'statement' ? 'statement' : 'premium');
     return new StreamableFile(buffer, {
       type: 'application/pdf',
       disposition: `${download === '1' ? 'attachment' : 'inline'}; filename="${fileName}"`,

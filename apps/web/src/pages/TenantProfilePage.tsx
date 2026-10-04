@@ -8,6 +8,7 @@ import { DocumentsSection } from '@/features/documents/DocumentsSection';
 import { PaymentsSection } from '@/features/payments/PaymentsSection';
 import { useTenant } from '@/features/tenants/api';
 import { ChangeRentModal } from '@/features/tenants/ChangeRentModal';
+import { ElectricityModal } from '@/features/tenants/ElectricityModal';
 import { telUrl, whatsappUrl } from '@/features/tenants/contact';
 import { formatDate, formatINR, formatMonthShort } from '@/utils/format';
 
@@ -19,6 +20,7 @@ export function TenantProfilePage() {
   const { data: t, isLoading, isError, error, refetch } = useTenant(id);
   const [section, setSection] = useState<Section>('Overview');
   const [rentOpen, setRentOpen] = useState(false);
+  const [elecOpen, setElecOpen] = useState(false);
 
   if (isLoading) return <Page title="Tenant" back="/tenants"><SkeletonList count={3} /></Page>;
   if (isError || !t) return <Page title="Tenant" back="/tenants"><ErrorState error={error} onRetry={() => void refetch()} /></Page>;
@@ -49,6 +51,15 @@ export function TenantProfilePage() {
           <Card className="mt-4">
             <DetailRow label="Monthly Rent" value={summary ? formatINR(summary.agreedRent) : '-'} />
             <DetailRow label="Deposit" value={summary ? formatINR(summary.securityDeposit) : '-'} />
+            {a ? (
+              <div className="flex min-h-11 items-center justify-between gap-4 border-b border-line py-2.5">
+                <span className="text-ink-soft">Electricity</span>
+                <span className="flex items-center gap-3 text-right font-medium">
+                  {a.electricityMode === 'METER' ? `${formatINR(a.ratePerUnit)} / unit` : a.electricityMode === 'FIXED' ? `Fixed ${formatINR(a.fixedElectricity)}` : 'Not charged'}
+                  <button type="button" onClick={() => setElecOpen(true)} className="text-small font-medium text-primary">Change</button>
+                </span>
+              </div>
+            ) : null}
             <DetailRow label="Outstanding" value={t.outstanding > 0 ? formatINR(t.outstanding) : 'Nil'} tone={t.outstanding > 0 ? 'danger' : 'success'} />
             <DetailRow label="Move-in" value={formatDate(summary?.startDate ?? t.joiningDate)} last />
           </Card>
@@ -101,6 +112,7 @@ export function TenantProfilePage() {
         </div>
       ) : null}
 
+      {a && elecOpen ? <ElectricityModal open onClose={() => setElecOpen(false)} assignmentId={a.id} mode={a.electricityMode} ratePerUnit={a.ratePerUnit} fixedElectricity={a.fixedElectricity} /> : null}
       {a && rentOpen ? <ChangeRentModal open onClose={() => setRentOpen(false)} assignmentId={a.id} currentRent={a.agreedRent} startDate={a.startDate} /> : null}
     </Page>
   );

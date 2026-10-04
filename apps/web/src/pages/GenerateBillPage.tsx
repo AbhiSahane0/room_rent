@@ -6,6 +6,7 @@ import { api, ApiError, friendlyError } from '@/api/client';
 import { Button, Card, DateInput, DetailRow, EmptyState, Icon, Input, MonthStepper, Notice, SectionHeader, Select, Skeleton } from '@/components/ui';
 import { Page } from '@/components/layout/Page';
 import { useBillPreview, useCreateBill, type BillRequest } from '@/features/bills/api';
+import { useChangeElectricity } from '@/features/tenants/api';
 import { ChargeModal, type ChargeRow } from '@/features/bills/ChargeModal';
 import { useProperty } from '@/features/properties/PropertyProvider';
 import { useDebounced } from '@/hooks/useDebounced';
@@ -23,6 +24,7 @@ export function GenerateBillPage() {
   const [period, setPeriod] = useState<string | undefined>();
   const [reading, setReading] = useState('');
   const [prevReading, setPrevReading] = useState('');
+  const [rate, setRate] = useState('');
   const [manual, setManual] = useState(false);
   const [manualAmount, setManualAmount] = useState('');
   const [charges, setCharges] = useState<ChargeRow[]>([]);
@@ -47,15 +49,17 @@ export function GenerateBillPage() {
       electricity: {
         ...(manual ? { currentReading: num(reading), overrideAmount: num(manualAmount) ?? 0 } : { currentReading: num(reading) }),
         ...(prevReading.trim() !== '' && num(prevReading) !== undefined ? { previousReading: num(prevReading) } : {}),
+        ...(rate.trim() !== '' && num(rate) !== undefined ? { ratePerUnit: num(rate) } : {}),
       },
       charges: charges.filter((c) => num(c.amount)).map((c) => ({ type: c.type, name: c.name, amount: Number(c.amount) })),
       lateFee: num(lateFee), discount: num(discount),
     };
-  }, [tenantId, period, dueDate, manual, reading, prevReading, manualAmount, charges, lateFee, discount]);
+  }, [tenantId, period, dueDate, manual, reading, prevReading, rate, manualAmount, charges, lateFee, discount]);
 
   const debounced = useDebounced(request, 400);
   const preview = useBillPreview(debounced);
   const data = preview.data;
+  const saveRate = useChangeElectricity(data?.assignmentId ?? '');
   const settling = request !== debounced || preview.isFetching;
 
   // First response seeds the month and any recurring charges (adjusting state while rendering, not in an effect).
@@ -109,6 +113,11 @@ export function GenerateBillPage() {
                         <Input label="Previous" inputMode="decimal" value={prevReading !== '' ? prevReading : String(el.previousReading ?? 0)} onChange={(e) => setPrevReading(e.target.value)} />
                         <Input label="Current" placeholder="Enter reading" inputMode="decimal" value={reading} onChange={(e) => setReading(e.target.value)} disabled={manual} />
                       </div>
+                      <Input label="Rate per unit" prefix="₹" inputMode="decimal" value={rate !== '' ? rate : String(el.ratePerUnit ?? '')} onChange={(e) => setRate(e.target.value)} disabled={manual}
+                        hint={rate !== '' && num(rate) !== undefined ? 'Used for this bill only.' : "This tenant's rate. Change it for one bill, or save it for all future bills."} />
+                      {rate !== '' && num(rate) !== undefined && num(rate) !== data.electricity.defaultRatePerUnit ? (
+                        <button type="button" disabled={saveRate.isPending} onClick={() => saveRate.mutate({ ratePerUnit: num(rate) }, { onSuccess: () => setRate('') })} className="text-small font-medium text-primary">Save ₹{rate} as this tenant's rate for all future bills</button>
+                      ) : null}
                       {prevReading === '' && (el.previousReading ?? 0) === 0 ? <p className="text-caption text-warning">No earlier meter reading is on record. Type the last reading from the meter in Previous, otherwise the whole meter value is billed.</p> : null}
                       {prevReading !== '' ? <p className="text-caption text-warning">Previous reading changed by you. Use this only if the stored reading is wrong or the meter was replaced.</p> : null}
                       {!manual && el.currentReading != null ? <p className="text-ink-soft">{el.units} units × {formatINR(el.ratePerUnit)} = <span className="font-medium text-ink">{formatINR(el.amount)}</span></p> : null}

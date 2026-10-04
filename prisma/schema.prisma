@@ -125,6 +125,8 @@ model Property {
   dueDayOfMonth      Int      @default(10) @map("due_day_of_month")
   defaultRatePerUnit Decimal  @default(8) @map("default_rate_per_unit") @db.Decimal(8, 2)
   billFooterNote     String?  @map("bill_footer_note")
+  /// UPI ID (VPA) printed as a "scan to pay" QR code on bills, e.g. name@bank.
+  upiId              String?  @map("upi_id")
   isActive           Boolean  @default(true) @map("is_active")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")

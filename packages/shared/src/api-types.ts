@@ -12,6 +12,7 @@ export interface Property {
   dueDayOfMonth: number;
   defaultRatePerUnit: number;
   billFooterNote: string | null;
+  upiId: string | null;
   roomCount?: number;
   occupiedCount?: number;
 }
@@ -184,6 +185,8 @@ export interface BillPreview {
     amount: number;
     isOverride: boolean;
     needsReading: boolean;
+    /** The rate stored for this stay (a rate typed for one bill does not change it). */
+    defaultRatePerUnit: number | null;
   };
   charges: { type: ChargeType; name: string; amount: number }[];
   totals: { rent: number; electricity: number; otherCharges: number; lateFee: number; discount: number; subtotal: number; previousBalance: number; totalDue: number };

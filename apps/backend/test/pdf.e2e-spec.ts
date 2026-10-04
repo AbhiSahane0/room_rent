@@ -2,6 +2,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import pdfParse from 'pdf-parse';
 import request from 'supertest';
 import { renderBillPdf } from '../src/billing/bill-pdf';
+import { breakdownLines, heroState, renderBillPremiumPdf, upiLink } from '../src/billing/bill-premium-pdf';
 import { renderBillStatementPdf, statementRows } from '../src/billing/bill-statement-pdf';
 import { formatINR } from '../src/common/format';
 import { PrismaService } from '../src/common/prisma.service';
@@ -136,13 +137,85 @@ describe('Bill PDF', () => {
       expect(map).toMatchObject({ 'Society Maintenance': '150', Water: '100', 'Late Fee': '50', Discount: '-100', 'Outstanding :': '0', 'Monthly Payment :': '5400', 'Paid :': '2000', 'Balance :': '3400' });
     });
 
-    it('is what the bill endpoint serves by default', async () => {
-      const res = await fetchPdf(owner, app, `/bills/${billId}/pdf`).expect(200);
+    it('is still available as ?format=statement', async () => {
+      const res = await fetchPdf(owner, app, `/bills/${billId}/pdf?format=statement`).expect(200);
       const text = (await pdfParse(res.body)).text.replace(/\s+/g, ' ');
-      expect(text).toContain('Sunrise Residency');
       expect(text).toContain('Rahul Sharma');
       expect(text).toContain('Monthly Payment');
       expect(text).not.toContain('INVOICE');
+    });
+  });
+
+  describe('premium bill (the default)', () => {
+    const bill = (over: object = {}, items?: any[]): any => ({
+      billNumber: 'INV-202609-0699', billingPeriod: new Date('2026-09-01'), dueDate: new Date('2099-09-10'), createdAt: new Date('2026-09-01'), status: 'GENERATED',
+      rentAmount: 6000, electricityAmount: 912, otherChargesAmount: 200, lateFee: 0, discount: 0, previousBalance: 1000, totalDue: 8112, paidAmount: 0, balance: 8112,
+      items: items ?? [
+        { type: 'RENT', description: 'Rent', amount: 6000 },
+        { type: 'ELECTRICITY', description: 'Electricity', amount: 912, meta: { mode: 'METER', previousReading: 4304, currentReading: 4380, units: 76, ratePerUnit: 12 } },
+        { type: 'CHARGE', description: 'Society Electricity', amount: 200 },
+        { type: 'PREVIOUS_BALANCE', description: 'Previous balance', amount: 1000, meta: { bills: ['INV-202608-0001'] } },
+      ],
+      payments: [], tenant: { fullName: 'Rajkumar Darsimbe', phone: '9876543210' }, room: { roomNumber: '1' },
+      property: { name: 'My Property', address: 'Gat 45', city: 'Pune', state: 'Maharashtra', pincode: '412207', billFooterNote: null, upiId: 'rent@okaxis' }, ...over,
+    });
+
+    it('explains every line in plain words', () => {
+      const lines = breakdownLines(bill());
+      expect(lines.map((l) => [l.label, l.detail, l.amount])).toEqual([
+        ['Monthly rent', 'For September 2026', 6000],
+        ['Electricity', 'Meter 4304 to 4380  ·  76 units × ₹12', 912],
+        ['Society Electricity', 'Shared by all tenants', 200],
+        ['Previous balance', 'Unpaid from INV-202608-0001', 1000],
+      ]);
+    });
+
+    it('tells the reader what to do: pay by the due date, overdue, or nothing', () => {
+      expect(heroState(bill())).toMatchObject({ label: 'BALANCE DUE', amount: '₹8,112', tone: 'warning' });
+      expect(heroState(bill({ dueDate: new Date('2026-01-10') })).sub).toMatch(/^Overdue since 10 Jan 2026/);
+      expect(heroState(bill({ balance: 0, paidAmount: 8112, status: 'PAID' }))).toMatchObject({ label: 'PAID IN FULL', tone: 'success' });
+    });
+
+    it('builds a UPI link with the payee and the exact amount', () => {
+      expect(upiLink('rent@okaxis', 'My Property', 8112, 'Rent INV-1')).toBe('upi://pay?pa=rent%40okaxis&pn=My%20Property&am=8112.00&cu=INR&tn=Rent%20INV-1');
+    });
+
+    it('renders one A4 page with the amount, breakdown and a QR code only when there is something to pay', async () => {
+      const withQr = await renderBillPremiumPdf(bill());
+      const parsed = await pdfParse(withQr);
+      expect(parsed.numpages).toBe(1);
+      const text = parsed.text.replace(/\s+/g, ' ');
+      for (const t of ['My Property', 'Rajkumar Darsimbe', 'ROOM 1', 'September 2026', 'BALANCE DUE', '₹8,112', 'Monthly rent', 'Meter 4304 to 4380', 'Previous balance', 'SCAN TO PAY', 'rent@okaxis', 'UNPAID']) expect(text).toContain(t);
+      expect(withQr.toString('latin1')).toContain('/Subtype /Image');
+
+      const paid = await renderBillPremiumPdf(bill({ balance: 0, paidAmount: 8112, status: 'PAID', payments: [{ paymentDate: new Date('2026-09-05'), method: 'UPI', reference: 'UTR1', amount: 8112 }] }));
+      const paidText = (await pdfParse(paid)).text.replace(/\s+/g, ' ');
+      expect(paidText).toContain('PAID IN FULL');
+      expect(paidText).toContain('PAYMENTS RECEIVED');
+      expect(paidText).not.toContain('SCAN TO PAY');
+      expect(paid.toString('latin1')).not.toContain('/Subtype /Image');
+    });
+
+    it('keeps a bill with many lines and payments on one page', async () => {
+      const items = [
+        { type: 'RENT', description: 'Rent', amount: 6000 },
+        ...Array.from({ length: 10 }, (_, i) => ({ type: 'CHARGE', description: `Extra charge ${i + 1}`, amount: 100 })),
+        { type: 'DISCOUNT', description: 'Security deposit adjusted', amount: -500 },
+        { type: 'PREVIOUS_BALANCE', description: 'Previous balance', amount: 2000, meta: { bills: Array.from({ length: 5 }, (_, i) => `INV-${i}`) } },
+      ];
+      const payments = Array.from({ length: 9 }, (_, i) => ({ paymentDate: new Date(`2026-09-0${i + 1}`), method: 'CASH', reference: null, amount: 100 }));
+      const pdf = await renderBillPremiumPdf(bill({ items, payments, paidAmount: 900, balance: 7600, totalDue: 8500, status: 'PARTIALLY_PAID' }));
+      const parsed = await pdfParse(pdf);
+      expect(parsed.numpages).toBe(1);
+      expect(parsed.text).toMatch(/\+ \d+ (earlier )?payments/);
+    });
+
+    it('is what the bill endpoint serves by default, with ?format=invoice still the plain invoice', async () => {
+      const text = (await pdfParse((await fetchPdf(owner, app, `/bills/${billId}/pdf`).expect(200)).body)).text.replace(/\s+/g, ' ');
+      expect(text).toContain('BILL BREAKDOWN');
+      expect(text).toContain('Rahul Sharma');
+      expect(text).not.toContain('INVOICE');
+      expect((await pdfParse((await fetchPdf(owner, app, `/bills/${billId}/pdf?format=invoice`).expect(200)).body)).text).toContain('INVOICE');
     });
   });
 });

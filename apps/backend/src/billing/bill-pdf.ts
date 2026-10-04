@@ -27,7 +27,7 @@ export interface PdfBill {
   payments: { paymentDate: Date; method: string; reference: string | null; amount: number }[];
   tenant: { fullName: string; phone: string };
   room: { roomNumber: string };
-  property: { name: string; address: string; city: string; state: string; pincode: string; billFooterNote?: string | null };
+  property: { name: string; address: string; city: string; state: string; pincode: string; billFooterNote?: string | null; upiId?: string | null };
 }
 
 const STATUS: Record<string, { label: string; color: string }> = {

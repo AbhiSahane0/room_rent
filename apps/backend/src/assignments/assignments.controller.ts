@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { AuthUser, CurrentUser, ResponseMessage } from '../common/decorators';
-import { ChangeRentDto, CreateAssignmentDto, MoveOutDto } from './assignments.dto';
+import { ChangeElectricityDto, ChangeRentDto, CreateAssignmentDto, MoveOutDto } from './assignments.dto';
 import { AssignmentsService } from './assignments.service';
 
 @Controller('room-assignments')
@@ -25,6 +25,13 @@ export class AssignmentsController {
   @ResponseMessage('Rent updated')
   changeRent(@CurrentUser() u: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: ChangeRentDto) {
     return this.service.changeRent(u.userId, id, dto);
+  }
+
+  @Post(':id/electricity')
+  @HttpCode(200)
+  @ResponseMessage('Electricity terms updated')
+  changeElectricity(@CurrentUser() u: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: ChangeElectricityDto) {
+    return this.service.changeElectricity(u.userId, id, dto);
   }
 
   @Get(':id/rent-history')
