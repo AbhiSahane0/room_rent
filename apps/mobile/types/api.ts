@@ -40,3 +40,62 @@ export interface RoomDetail extends Omit<Room, 'currentTenant'> {
   currentTenant: { id: string; fullName: string; phone: string; assignmentId: string; startDate: string; securityDeposit: number } | null;
   previousTenants: { assignmentId: string; tenantId: string; fullName: string; startDate: string; endDate: string | null; agreedRent: number }[];
 }
+
+export interface TenantListItem {
+  id: string;
+  fullName: string;
+  phone: string;
+  email: string | null;
+  status: TenantStatus;
+  joiningDate: string;
+  room: { id: string; roomNumber: string } | null;
+  assignmentId: string | null;
+  monthlyRent: number | null;
+  balance: number;
+}
+
+export interface RentHistoryEntry { id: string; amount: number; effectiveFrom: string }
+
+export interface TenantDetail {
+  id: string;
+  propertyId: string;
+  fullName: string;
+  phone: string;
+  alternatePhone: string | null;
+  email: string | null;
+  permanentAddress: string | null;
+  currentAddress: string | null;
+  emergencyContact: string | null;
+  emergencyPhone: string | null;
+  occupation: string | null;
+  joiningDate: string;
+  notes: string | null;
+  status: TenantStatus;
+  property: { id: string; name: string };
+  outstanding: number;
+  documentTypes: DocumentType[];
+  currentAssignment: {
+    id: string;
+    room: { id: string; roomNumber: string };
+    startDate: string;
+    agreedRent: number;
+    securityDeposit: number;
+    electricityMode: ElectricityMode;
+    ratePerUnit: number | null;
+    fixedElectricity: number | null;
+    initialMeterReading: number | null;
+    rents: RentHistoryEntry[];
+  } | null;
+  lastAssignment: { id: string; room: { id: string; roomNumber: string }; startDate: string; endDate: string | null; agreedRent: number; securityDeposit: number } | null;
+  roomHistory: {
+    assignmentId: string;
+    room: { id: string; roomNumber: string };
+    startDate: string;
+    endDate: string | null;
+    agreedRent: number;
+    securityDeposit: number;
+    status: 'ACTIVE' | 'CLOSED';
+    finalMeterReading: number | null;
+    moveOutNotes: string | null;
+  }[];
+}

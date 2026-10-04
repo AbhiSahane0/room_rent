@@ -19,3 +19,5 @@ export * from './SegmentedControl';
 export * from './Fab';
 export * from './DetailRow';
 export * from './FormField';
+export * from './DateField';
+export * from './StepIndicator';
