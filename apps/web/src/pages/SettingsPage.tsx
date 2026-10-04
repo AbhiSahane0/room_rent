@@ -3,6 +3,7 @@ import { Building2, ChevronRight, Info, ReceiptText, ShieldCheck, type LucideIco
 import { Link } from 'react-router-dom';
 import { api } from '@/api/client';
 import { Avatar, Card, Icon, SectionHeader } from '@/components/ui';
+import { ExportButton } from '@/features/exports/ExportButton';
 import { LogoutButton } from '@/components/layout/AppShell';
 import { Page } from '@/components/layout/Page';
 import { useProperty } from '@/features/properties/PropertyProvider';
@@ -35,6 +36,11 @@ export function SettingsPage() {
         <Row icon={Building2} label="Property Settings" hint={current ? `${current.name}, ${current.city}` : 'Add a property first'} to={current ? `/properties/${current.id}/edit` : '/properties/new'} />
         <Row icon={ReceiptText} label="Bill Settings" hint={current ? `Prefix ${current.billPrefix}, due on day ${current.dueDayOfMonth}` : 'Prefix, due day, electricity rate'} to={current ? '/settings/bill' : undefined} />
         <Row icon={Building2} label="All Properties" to="/properties" last />
+      </Card>
+      <SectionHeader title="Your data" />
+      <Card className="space-y-3">
+        <p className="text-ink-soft">Download everything in one Excel file: rooms, tenants and what they owe, every bill and payment, electricity readings and a month-by-month summary. Open it in Excel, Google Sheets or Numbers.</p>
+        <ExportButton />
       </Card>
       <SectionHeader title="App" />
       <Card padded={false} className="overflow-hidden"><Row icon={Info} label="About" hint="Rent Manager · Web" last /></Card>

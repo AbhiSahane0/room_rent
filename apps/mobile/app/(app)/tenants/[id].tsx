@@ -112,7 +112,7 @@ export default function TenantProfileScreen() {
       ) : null}
 
       {section === 'Documents' ? <DocumentsSection tenantId={t.id} /> : null}
-      {section === 'Electricity' ? <ElectricityHistory tenantId={t.id} /> : null}
+      {section === 'Electricity' ? <ElectricityHistory tenantId={t.id} currentRate={a?.electricityMode === 'METER' ? a.ratePerUnit : null} /> : null}
       {section === 'Payments' ? <PaymentsSection tenantId={t.id} canPay={t.outstanding > 0} /> : null}
       {section === 'Bills' ? <BillsSection tenantId={t.id} canBill={!!t.currentAssignment} /> : null}
 

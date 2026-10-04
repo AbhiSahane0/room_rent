@@ -1,13 +1,14 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { Building2, ChevronRight, Info, LogOut, ReceiptText, ShieldCheck } from 'lucide-react-native';
+import { Building2, ChevronRight, FileSpreadsheet, Info, LogOut, ReceiptText, ShieldCheck } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import { api, friendlyError } from '@/api/client';
 import { Card, ConfirmDialog, Header, Icon, Screen, SectionHeader, Text } from '@/components/ui';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { exportExcel } from '@/features/exports/excel';
 import { useProperty } from '@/features/properties/PropertyProvider';
 import { Avatar } from '@/features/tenants/TenantCard';
 
@@ -31,6 +32,12 @@ export default function SettingsScreen() {
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.get<{ id: string; username: string }>('/auth/me') });
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const runExport = async () => {
+    setExporting(true); setExportMsg(null);
+    try { await exportExcel(); setExportMsg({ ok: true, text: 'Excel file ready.' }); } catch (e) { setExportMsg({ ok: false, text: friendlyError(e) }); } finally { setExporting(false); }
+  };
   const version = Constants.expoConfig?.version ?? '1.0.0';
 
   return (
@@ -54,6 +61,12 @@ export default function SettingsScreen() {
         <Row icon={Building2} label="Property Settings" hint={current ? `${current.name}, ${current.city}` : 'Add a property first'} onPress={current ? () => router.push({ pathname: '/properties/form', params: { id: current.id } }) : () => router.push('/properties/form')} />
         <Row icon={ReceiptText} label="Bill Settings" hint={current ? `Prefix ${current.billPrefix}, due on day ${current.dueDayOfMonth}` : 'Prefix, due day, electricity rate'} onPress={current ? () => router.push('/settings/bill') : undefined} last />
       </Card>
+
+      <SectionHeader title="Your data" />
+      <Card padded={false}>
+        <Row icon={FileSpreadsheet} label={exporting ? 'Preparing Excel file...' : 'Export all data to Excel'} hint="Rooms, tenants, bills, payments, electricity and dues" onPress={exporting ? undefined : runExport} last />
+      </Card>
+      {exportMsg ? <Text variant="secondary" tone={exportMsg.ok ? 'success' : 'danger'} className="mt-2">{exportMsg.text}</Text> : null}
 
       <SectionHeader title="App" />
       <Card padded={false}>

@@ -66,6 +66,8 @@ same signed, expiring links. **Production refuses to start without R2 configured
   `GET /bills/:id/pdf?format=statement` still returns the one-table form from the Excel sheet and `?format=invoice` the plain invoice.
 - **Tenants who moved out keep their dues.** Nothing is written off automatically: the balance stays on their old bills. Home shows *Moved out, still owe* and the Total outstanding split
   into current and former tenants; the Tenants tab has *Owes money* and *Left with dues* filters; payments can be recorded against old bills any time (Tenant > Payments > Record Payment).
+- **Excel export**: Settings > *Export all data to Excel* (web and phone) downloads one workbook: Summary, Rooms, Tenants (with what each owes), Stays, Bills, Bill items, Payments, Electricity (readings, units, rate), Outstanding (current and former tenants) and Monthly. Every sheet is a filterable table with real numbers and dates. `GET /exports/excel[?propertyId=]`.
+- **Electricity history**: on every tenant profile, an *Electricity* tab with the total, monthly average, highest month, current rate, a 12-month chart and each month's readings and amount (months imported from the spreadsheet show the amount only).
 - **Home KPIs**: collection of the month with its rent/electricity/other make-up, total outstanding (current vs former), overdue, due in 7 days, rent roll, occupancy and the rent lost to vacancy,
   collected in the last 7 days, tenants still to be billed this month, six-month trend and recent payments.
 

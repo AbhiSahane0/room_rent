@@ -6,7 +6,7 @@ import { formatINR, formatMonth, formatMonthShort } from '@/utils/format';
 import { useTenantElectricity } from './api';
 
 /** Month-by-month electricity for one tenant: totals, a 12-month chart and every bill's readings. */
-export function ElectricityHistory({ tenantId }: { tenantId: string }) {
+export function ElectricityHistory({ tenantId, currentRate }: { tenantId: string; currentRate?: number | null }) {
   const router = useRouter();
   const q = useTenantElectricity(tenantId);
   if (q.isLoading) return <View className="mt-4"><SkeletonList count={2} lines={3} /></View>;
@@ -25,7 +25,7 @@ export function ElectricityHistory({ tenantId }: { tenantId: string }) {
       </View>
       <View className="flex-row gap-3">
         <Card className="flex-1 gap-0.5"><Text variant="caption" tone="muted">Highest month</Text><Text variant="heading">{s.highest ? formatINR(s.highest.amount) : '-'}</Text><Text variant="caption" tone="muted">{s.highest ? formatMonth(s.highest.month) : ' '}</Text></Card>
-        <Card className="flex-1 gap-0.5"><Text variant="caption" tone="muted">Current rate</Text><Text variant="heading">{s.latestRate != null ? `${formatINR(s.latestRate)} / unit` : '-'}</Text>{s.totalUnits != null ? <Text variant="caption" tone="muted">{s.totalUnits} units metered</Text> : null}</Card>
+        <Card className="flex-1 gap-0.5"><Text variant="caption" tone="muted">Current rate</Text><Text variant="heading">{(currentRate ?? s.latestRate) != null ? `${formatINR(currentRate ?? s.latestRate)} / unit` : '-'}</Text>{s.totalUnits != null ? <Text variant="caption" tone="muted">{s.totalUnits} units metered</Text> : null}</Card>
       </View>
 
       <Card>

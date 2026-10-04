@@ -6,7 +6,7 @@ import { formatINR, formatMonth, formatMonthShort } from '@/utils/format';
 import { useTenantElectricity } from './api';
 
 /** Month-by-month electricity for one tenant: totals, a 12-month chart and every bill's readings. */
-export function ElectricityHistory({ tenantId }: { tenantId: string }) {
+export function ElectricityHistory({ tenantId, currentRate }: { tenantId: string; currentRate?: number | null }) {
   const q = useTenantElectricity(tenantId);
   if (q.isLoading) return <div className="mt-4"><SkeletonList count={2} /></div>;
   if (q.isError) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
@@ -21,7 +21,7 @@ export function ElectricityHistory({ tenantId }: { tenantId: string }) {
         <Card className="space-y-0.5"><div className="text-caption text-ink-muted">Total charged</div><div className="text-heading">{formatINR(s.totalAmount)}</div><div className="text-caption text-ink-muted">{s.months} {s.months === 1 ? 'month' : 'months'}</div></Card>
         <Card className="space-y-0.5"><div className="text-caption text-ink-muted">Average a month</div><div className="text-heading">{formatINR(s.averageMonthly)}</div></Card>
         <Card className="space-y-0.5"><div className="text-caption text-ink-muted">Highest month</div><div className="text-heading">{s.highest ? formatINR(s.highest.amount) : '-'}</div><div className="text-caption text-ink-muted">{s.highest ? formatMonth(s.highest.month) : ''}</div></Card>
-        <Card className="space-y-0.5"><div className="text-caption text-ink-muted">Current rate</div><div className="text-heading">{s.latestRate != null ? `${formatINR(s.latestRate)} / unit` : '-'}</div>{s.totalUnits != null ? <div className="text-caption text-ink-muted">{s.totalUnits} units metered</div> : null}</Card>
+        <Card className="space-y-0.5"><div className="text-caption text-ink-muted">Current rate</div><div className="text-heading">{(currentRate ?? s.latestRate) != null ? `${formatINR(currentRate ?? s.latestRate)} / unit` : '-'}</div>{s.totalUnits != null ? <div className="text-caption text-ink-muted">{s.totalUnits} units metered</div> : null}</Card>
       </div>
 
       <Card>
