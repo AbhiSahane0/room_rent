@@ -266,9 +266,11 @@ model ElectricityReading {
   ratePerUnit     Decimal  @map("rate_per_unit") @db.Decimal(8, 2)
   amount          Decimal  @db.Decimal(12, 2)
   isOverride      Boolean  @default(false) @map("is_override")
+  billId          String?  @unique @map("bill_id") @db.Uuid
   createdAt       DateTime @default(now()) @map("created_at")
 
   assignment RoomAssignment @relation(fields: [assignmentId], references: [id])
+  bill       Bill?          @relation(fields: [billId], references: [id], onDelete: SetNull)
 
   @@unique([assignmentId, billingPeriod])
   @@map("electricity_readings")
@@ -314,14 +316,16 @@ model Bill {
   createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt          DateTime   @updatedAt @map("updated_at")
 
-  property   Property       @relation(fields: [propertyId], references: [id])
-  assignment RoomAssignment @relation(fields: [assignmentId], references: [id])
-  tenant     Tenant         @relation(fields: [tenantId], references: [id])
-  room       Room           @relation(fields: [roomId], references: [id])
+  property   Property            @relation(fields: [propertyId], references: [id])
+  assignment RoomAssignment      @relation(fields: [assignmentId], references: [id])
+  tenant     Tenant              @relation(fields: [tenantId], references: [id])
+  room       Room                @relation(fields: [roomId], references: [id])
   items      BillItem[]
   payments   Payment[]
+  reading    ElectricityReading?
 
-  @@unique([assignmentId, billingPeriod])
+  // One non-cancelled bill per assignment and period is enforced by a partial unique index in the migration SQL.
+  @@index([assignmentId, billingPeriod])
   @@index([propertyId, billingPeriod])
   @@index([tenantId, billingPeriod])
   @@index([status, dueDate])
