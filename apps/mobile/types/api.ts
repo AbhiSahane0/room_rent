@@ -217,3 +217,54 @@ export interface OpenBill {
   balance: number;
   label: string;
 }
+
+export interface PendingPayment {
+  tenantId: string;
+  fullName: string;
+  phone: string;
+  roomNumber: string;
+  balance: number;
+  billId: string;
+  billCount: number;
+  dueDate: string;
+  overdueDays: number;
+}
+
+export interface DashboardData {
+  username: string;
+  properties: { id: string; name: string; city: string; state: string }[];
+  property: { id: string; name: string; city: string; state: string } | null;
+  collection: { month: string; monthLabel: string; expected: number; collected: number; paymentCount: number; pending: number; collectionRate: number } | null;
+  occupancy: { totalRooms: number; occupied: number; vacant: number; maintenance: number; occupancyPercent: number } | null;
+  pendingPayments: PendingPayment[];
+  pendingCount?: number;
+}
+
+export interface CollectionReport {
+  month: string;
+  monthLabel: string;
+  expected: number;
+  collected: number;
+  paymentCount: number;
+  pending: number;
+  collectionRate: number;
+  byMethod: { method: PaymentMethod; amount: number; count: number }[];
+  trend: { month: string; label: string; expected: number; collected: number }[];
+}
+
+export interface OccupancyReport {
+  totalRooms: number;
+  occupied: number;
+  vacant: number;
+  maintenance: number;
+  occupancyPercent: number;
+  rentableOccupancyPercent: number;
+  vacantRooms: { id: string; roomNumber: string; defaultRent: number }[];
+  vacantRentPotential: number;
+}
+
+export interface OutstandingReport {
+  total: number;
+  count: number;
+  items: (PendingPayment & { tenantStatus: TenantStatus })[];
+}
