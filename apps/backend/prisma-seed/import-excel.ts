@@ -60,9 +60,19 @@ async function main() {
   const uid = user.id;
 
   const propertyName = arg('property-name', process.env.IMPORT_PROPERTY_NAME ?? 'My Property')!;
-  if (await prisma.property.findFirst({ where: { ownerId: uid, name: propertyName } })) {
-    console.log(`Property "${propertyName}" already exists. Nothing imported (use --property-name for a different one).`);
-    return void (await app.close());
+  const existing = await prisma.property.findFirst({ where: { ownerId: uid, name: propertyName } });
+  if (existing) {
+    if ((await prisma.bill.count({ where: { propertyId: existing.id } })) > 0) {
+      console.log(`Property "${propertyName}" already exists with bills. Nothing imported (use --property-name for a different one).`);
+      return void (await app.close());
+    }
+    // A previous run stopped half way (nothing was billed yet): clear its leftovers and start again.
+    if ((await prisma.tenant.count({ where: { propertyId: existing.id } })) > 0) {
+      console.log(`Property "${propertyName}" already has tenants but no bills (an interrupted import). Delete that property in Supabase (or use --property-name for a new one) and run again.`);
+      return void (await app.close());
+    }
+    console.log('Removing the leftovers of an interrupted import, then importing again.');
+    await prisma.$transaction([prisma.room.deleteMany({ where: { propertyId: existing.id } }), prisma.property.delete({ where: { id: existing.id } })]);
   }
 
   const property = await properties.create(uid, {
