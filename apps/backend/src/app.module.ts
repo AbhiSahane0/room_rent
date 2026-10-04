@@ -9,6 +9,8 @@ import { Public } from './common/decorators';
 import { validateEnv } from './common/env';
 import { PrismaModule } from './common/prisma.service';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { PropertiesModule } from './properties/properties.module';
+import { RoomsModule } from './rooms/rooms.module';
 
 @Controller('health')
 class HealthController {
@@ -27,6 +29,8 @@ class HealthController {
     AuditModule,
     AuthModule,
     DashboardModule,
+    PropertiesModule,
+    RoomsModule,
   ],
   controllers: [HealthController],
   providers: [
