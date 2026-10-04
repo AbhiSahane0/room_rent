@@ -19,6 +19,7 @@
     "web:build": "npm run -w @rental/mobile web:build",
     "web": "npm run -w @rental/mobile web",
     "db:deploy": "npm run -w @rental/backend prisma:deploy",
-    "db:status": "npm run -w @rental/backend prisma:status"
+    "db:status": "npm run -w @rental/backend prisma:status",
+    "web:preview": "npm run -w @rental/mobile web:preview"
   }
 }

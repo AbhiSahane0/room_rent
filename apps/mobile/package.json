@@ -61,7 +61,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "jest",
-    "web:build": "expo export --platform web --output-dir dist"
+    "web:build": "expo export --platform web --output-dir dist",
+    "web:serve": "node scripts/serve-web.js",
+    "web:preview": "npm run web:build && node scripts/serve-web.js"
   },
   "private": true
 }

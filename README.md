@@ -125,7 +125,8 @@ The same code runs as a website, so iPhone users do not need the App Store. It i
 tablets get card grids, and laptops get a sidebar with a centred content column.
 
 ```bash
-npm run web                 # local dev server in the browser
+npm run web:preview         # builds the site and serves it at http://localhost:8081 (most reliable way to run it locally)
+npm run web                 # Expo dev server with hot reload (needs a working Expo install and network access)
 EXPO_PUBLIC_API_URL=https://api.yourdomain.com npm run web:build    # static site in apps/mobile/dist
 ```
 
