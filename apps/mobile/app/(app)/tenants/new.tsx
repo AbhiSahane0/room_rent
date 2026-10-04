@@ -180,6 +180,7 @@ export default function AddTenantScreen() {
                     <DetailRow label="Move-in" value={formatDate(v.startDate || v.joiningDate)} />
                     <DetailRow label="Monthly rent" value={formatINR(toNumber(v.agreedRent || '0'))} />
                     <DetailRow label="Deposit" value={formatINR(toNumber(v.securityDeposit || '0'))} />
+                    {toNumber(v.openingBalance || '0') > 0 ? <DetailRow label="Outstanding from before" value={formatINR(toNumber(v.openingBalance))} /> : null}
                     <DetailRow label="Electricity" value={v.electricityMode === 'METER' ? `Meter, ${formatINR(toNumber(v.ratePerUnit || '0'))} / unit` : v.electricityMode === 'FIXED' ? `Fixed ${formatINR(toNumber(v.fixedElectricity || '0'))}` : 'Not charged'} last />
                   </>
                 ) : (

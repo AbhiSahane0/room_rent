@@ -28,13 +28,14 @@ export const tenantFormSchema = z.object({
   ratePerUnit: optionalMoneyString,
   fixedElectricity: optionalMoneyString,
   initialMeterReading: optionalMoneyString,
+  openingBalance: optionalMoneyString,
 });
 export type TenantForm = z.infer<typeof tenantFormSchema>;
 
 export const emptyTenantForm: TenantForm = {
   fullName: '', joiningDate: '', occupation: '', notes: '', phone: '', alternatePhone: '', email: '', permanentAddress: '', currentAddress: '',
   emergencyContact: '', emergencyPhone: '', roomId: '', startDate: '', agreedRent: '', securityDeposit: '', electricityMode: 'METER',
-  ratePerUnit: '', fixedElectricity: '', initialMeterReading: '',
+  ratePerUnit: '', fixedElectricity: '', initialMeterReading: '', openingBalance: '',
 };
 
 export const STEP_FIELDS: Record<string, (keyof TenantForm)[]> = {
@@ -42,7 +43,7 @@ export const STEP_FIELDS: Record<string, (keyof TenantForm)[]> = {
   Contact: ['phone', 'alternatePhone', 'email', 'permanentAddress', 'currentAddress', 'emergencyContact', 'emergencyPhone'],
   Documents: [],
   Room: ['roomId'],
-  'Rent & Deposit': ['startDate', 'agreedRent', 'securityDeposit', 'electricityMode', 'ratePerUnit', 'fixedElectricity', 'initialMeterReading'],
+  'Rent & Deposit': ['startDate', 'agreedRent', 'securityDeposit', 'electricityMode', 'ratePerUnit', 'fixedElectricity', 'initialMeterReading', 'openingBalance'],
   Review: [],
 };
 
@@ -63,4 +64,5 @@ export const assignmentPayload = (v: TenantForm) => ({
   ratePerUnit: v.electricityMode === 'METER' ? toOptionalNumber(v.ratePerUnit) : undefined,
   fixedElectricity: v.electricityMode === 'FIXED' ? toOptionalNumber(v.fixedElectricity) : undefined,
   initialMeterReading: v.electricityMode === 'METER' ? toOptionalNumber(v.initialMeterReading) : undefined,
+  openingBalance: toOptionalNumber(v.openingBalance),
 });

@@ -42,10 +42,14 @@ export default function TenantProfileScreen() {
         <Text variant="title" className="mt-2 text-center">{t.fullName}</Text>
         <Text tone="soft">{a ? `Room ${a.room.roomNumber}` : 'No room assigned'} · {t.property.name}</Text>
         {t.status === 'MOVED_OUT' ? <View className="mt-1"><Badge label="Moved out" tone="neutral" /></View> : null}
-        <View className="mt-4 w-full flex-row gap-3">
-          <View className="flex-1"><Button label="Call" icon={Phone} variant="secondary" onPress={() => callPhone(t.phone)} /></View>
-          <View className="flex-1"><Button label="WhatsApp" icon={MessageCircle} variant="secondary" onPress={() => openWhatsApp(t.phone)} /></View>
-        </View>
+        {t.phone ? (
+          <View className="mt-4 w-full flex-row gap-3">
+            <View className="flex-1"><Button label="Call" icon={Phone} variant="secondary" onPress={() => callPhone(t.phone)} /></View>
+            <View className="flex-1"><Button label="WhatsApp" icon={MessageCircle} variant="secondary" onPress={() => openWhatsApp(t.phone)} /></View>
+          </View>
+        ) : (
+          <View className="mt-4 w-full"><Button label="Add phone number" icon={Phone} variant="secondary" onPress={() => router.push({ pathname: '/tenants/edit', params: { id } })} /></View>
+        )}
       </Card>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-4 flex-grow-0" contentContainerClassName="gap-2">
@@ -74,7 +78,7 @@ export default function TenantProfileScreen() {
 
           <SectionHeader title="Contact" />
           <Card>
-            <DetailRow label="Phone" value={t.phone} />
+            <DetailRow label="Phone" value={t.phone || 'Not added'} />
             {t.alternatePhone ? <DetailRow label="Alternate" value={t.alternatePhone} /> : null}
             <DetailRow label="Email" value={t.email ?? '-'} />
             <DetailRow label="Occupation" value={t.occupation ?? '-'} />

@@ -21,6 +21,7 @@ export default function GenerateBillScreen() {
   const [tenantId, setTenantId] = useState<string | undefined>(params.tenantId);
   const [period, setPeriod] = useState<string | undefined>();
   const [reading, setReading] = useState('');
+  const [prevReading, setPrevReading] = useState('');
   const [manual, setManual] = useState(false);
   const [manualAmount, setManualAmount] = useState('');
   const [charges, setCharges] = useState<ChargeRow[]>([]);
@@ -44,12 +45,15 @@ export default function GenerateBillScreen() {
       tenantId,
       billingPeriod: period,
       dueDate,
-      electricity: manual ? { currentReading: num(reading), overrideAmount: num(manualAmount) ?? 0 } : { currentReading: num(reading) },
+      electricity: {
+        ...(manual ? { currentReading: num(reading), overrideAmount: num(manualAmount) ?? 0 } : { currentReading: num(reading) }),
+        ...(prevReading.trim() !== '' && num(prevReading) !== undefined ? { previousReading: num(prevReading) } : {}),
+      },
       charges: charges.filter((c) => num(c.amount)).map((c) => ({ type: c.type, name: c.name, amount: Number(c.amount) })),
       lateFee: num(lateFee),
       discount: num(discount),
     };
-  }, [tenantId, period, dueDate, manual, reading, manualAmount, charges, lateFee, discount]);
+  }, [tenantId, period, dueDate, manual, reading, prevReading, manualAmount, charges, lateFee, discount]);
 
   const debounced = useDebounced(request, 400);
   const preview = useBillPreview(debounced);
@@ -113,7 +117,7 @@ export default function GenerateBillScreen() {
               <Text variant="heading">{data?.tenant.fullName ?? ' '}</Text>
               <Text variant="secondary" tone="soft">{data ? `Room ${data.room.roomNumber}` : ' '}</Text>
             </View>
-            {!params.tenantId ? <Pressable onPress={() => { setTenantId(undefined); setSeeded(false); setPeriod(undefined); setCharges([]); setReading(''); }} accessibilityRole="button"><Text variant="secondaryMedium" tone="primary">Change</Text></Pressable> : null}
+            {!params.tenantId ? <Pressable onPress={() => { setTenantId(undefined); setSeeded(false); setPeriod(undefined); setCharges([]); setReading(''); setPrevReading(''); }} accessibilityRole="button"><Text variant="secondaryMedium" tone="primary">Change</Text></Pressable> : null}
           </Card>
 
           {period ? <MonthStepper label="Billing Month" value={period} onChange={setPeriod} /> : <Skeleton height={48} radius={12} />}
@@ -134,9 +138,11 @@ export default function GenerateBillScreen() {
                   {el.mode === 'METER' ? (
                     <>
                       <View className="flex-row gap-3">
-                        <View className="flex-1"><Input label="Previous" value={String(el.previousReading ?? 0)} editable={false} /></View>
+                        <View className="flex-1"><Input label="Previous" keyboardType="decimal-pad" value={prevReading !== '' ? prevReading : String(el.previousReading ?? 0)} onChangeText={setPrevReading} /></View>
                         <View className="flex-1"><Input label="Current" placeholder="Enter reading" keyboardType="decimal-pad" value={reading} onChangeText={setReading} editable={!manual} /></View>
                       </View>
+                      {prevReading === '' && (el.previousReading ?? 0) === 0 ? <Text variant="caption" tone="warning">No earlier meter reading is on record. Type the last reading from the meter in Previous, otherwise the whole meter value is billed.</Text> : null}
+                      {prevReading !== '' ? <Text variant="caption" tone="warning">Previous reading changed by you. Use this only if the stored reading is wrong or the meter was replaced.</Text> : null}
                       {!manual && el.currentReading != null ? (
                         <Text tone="soft">{el.units} units × {formatINR(el.ratePerUnit)} = <Text variant="bodyMedium">{formatINR(el.amount)}</Text></Text>
                       ) : null}
@@ -181,7 +187,7 @@ export default function GenerateBillScreen() {
                 {data.charges.map((c, i) => <DetailRow key={i} label={c.name} value={formatINR(c.amount)} />)}
                 {data.totals.lateFee > 0 ? <DetailRow label="Late fee" value={formatINR(data.totals.lateFee)} /> : null}
                 {data.totals.discount > 0 ? <DetailRow label="Discount" value={`-${formatINR(data.totals.discount)}`} tone="success" /> : null}
-                {data.totals.previousBalance > 0 ? <DetailRow label={`Previous balance${data.carriedBills.length ? ` (${data.carriedBills.length} bill${data.carriedBills.length > 1 ? 's' : ''})` : ''}`} value={formatINR(data.totals.previousBalance)} tone="danger" /> : null}
+                {data.totals.previousBalance > 0 ? <DetailRow label={`${data.openingBalance > 0 && data.carriedBills.length === 0 ? 'Outstanding (from before)' : 'Previous balance'}${data.carriedBills.length ? ` (${data.carriedBills.length} bill${data.carriedBills.length > 1 ? 's' : ''})` : ''}`} value={formatINR(data.totals.previousBalance)} tone="danger" /> : null}
                 <DetailRow label="Total" value={formatINR(data.totals.totalDue)} strong last />
               </Card>
               <Text variant="caption" tone="muted" className="text-center">Totals are calculated and verified by the server for {formatYM(period ?? toYM(data.billingPeriod))}. Due {formatDate(dueDate ?? data.dueDate)}.</Text>

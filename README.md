@@ -54,6 +54,14 @@ API URL from the app: Android emulator `http://10.0.2.2:3000`, iOS simulator `ht
 Without R2 keys, development falls back to storing documents on local disk (`apps/backend/.storage`, git-ignored) behind the
 same signed, expiring links. **Production refuses to start without R2 configured.**
 
+### Import an existing Excel register
+`npm run db:import -- /path/to/RENT.xlsx --dry-run` previews, and without `--dry-run` it imports the rooms, current tenants and the latest
+month's bills from the sheet's **Billing** tab (options: `--property-name`, `--address`, `--city`, `--state`, `--pincode`, `--rate`).
+It runs through the real services, checks each tenant's *Monthly Payment* against what the app calculates, and stops if they differ.
+The sheet's *Outstanding* becomes the tenant's **opening balance** (added to the first bill; a negative advance credit is not imported).
+Phone numbers, deposits and meter readings are not in the sheet: add them in the app. Before the first new bill, type each room's last meter
+reading into **Previous** on Generate Bill. Run it on the machine that holds your `.env` (so it writes to Supabase), and never commit the spreadsheet.
+
 ## 2. Accounts you need
 
 ### Supabase (PostgreSQL)
@@ -132,6 +140,7 @@ Camera, document picker, sharing and PDF viewing use native modules, so use an E
 ## 8. Behaviour notes and current limits
 
 - **Carry-forward**: a new bill includes the tenant's unpaid balance as *Previous balance*; the older bills are linked (`carried forward`) and their amounts never change. Payments go to the newest bill. Bills must be generated in month order.
+- **PDF**: the default bill PDF is the owner's one-table monthly rent form (tenant, room, month, rent, electricity, society charges, outstanding, monthly payment). The formal A4 invoice is still available at `/bills/:id/pdf?format=invoice`.
 - **Overdue** is derived from the due date at read time.
 - **Cancelling** a bill is only possible with no payments; it frees the month and the meter reading so the bill can be regenerated. Recorded payments are permanent (no reversal yet).
 - `DRAFT` exists as a status but bills are generated directly (no draft editing in the MVP).

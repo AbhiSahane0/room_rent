@@ -84,6 +84,7 @@ export function RentFields({ showMoveIn = true }: { showMoveIn?: boolean }) {
         </>
       ) : null}
       {mode === 'FIXED' ? <MoneyField control={control} name="fixedElectricity" label="Fixed Monthly Electricity" /> : null}
+      <MoneyField control={control} name="openingBalance" label="Outstanding from before" hint="Optional. Amount already owed before using this app; it is added to the first bill." />
     </View>
   );
 }

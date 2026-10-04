@@ -2,7 +2,10 @@
   "name": "rental-management",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "backend": "npm run -w @rental/backend start:dev",
     "mobile": "npm run -w @rental/mobile start",
@@ -11,6 +14,7 @@
     "db:seed": "npm run -w @rental/backend prisma:seed",
     "typecheck": "npm run -ws --if-present typecheck",
     "lint": "npm run -ws --if-present lint",
-    "test": "npm run -ws --if-present test"
+    "test": "npm run -ws --if-present test",
+    "db:import": "npm run -w @rental/backend prisma:import --"
   }
 }

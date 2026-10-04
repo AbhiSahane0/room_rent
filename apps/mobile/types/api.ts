@@ -191,6 +191,7 @@ export interface BillPreview {
   charges: { type: ChargeType; name: string; amount: number }[];
   totals: { rent: number; electricity: number; otherCharges: number; lateFee: number; discount: number; subtotal: number; previousBalance: number; totalDue: number };
   carriedBills: { id: string; billNumber: string; balance: number }[];
+  openingBalance: number;
   recurringCharges: { id: string; type: ChargeType; name: string; amount: number }[];
 }
 
