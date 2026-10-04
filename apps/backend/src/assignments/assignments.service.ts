@@ -46,6 +46,7 @@ export class AssignmentsService {
         ratePerUnit,
         fixedElectricity,
         initialMeterReading: mode === 'METER' ? terms.initialMeterReading ?? 0 : null,
+        openingBalance: terms.openingBalance ?? 0,
         notes: terms.notes,
         status: 'ACTIVE',
       },

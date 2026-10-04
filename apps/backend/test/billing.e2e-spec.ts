@@ -203,4 +203,24 @@ describe('Billing (e2e)', () => {
     const p = await owner.post('/bills/preview', { tenantId, billingPeriod: '2026-10' });
     expect(p.status).toBe(409); // October already billed
   });
+
+  it('adds a migrated opening balance to the first bill only', async () => {
+    const r = (await owner.post('/rooms', { propertyId, roomNumber: 'M1', defaultRent: 6000, electricityMode: 'NONE' })).body.data.id;
+    const t = (await owner.post('/tenants', { fullName: 'Migrated Tenant', phone: '9000000077', joiningDate: '2026-07-01', assignment: { roomId: r, startDate: '2026-07-01', agreedRent: 6000, openingBalance: 1000 } })).body.data;
+    const a = t.currentAssignment.id;
+    const p = (await owner.post('/bills/preview', { assignmentId: a, billingPeriod: '2026-08' }).expect(200)).body.data;
+    expect(p).toMatchObject({ openingBalance: 1000 });
+    expect(p.totals).toMatchObject({ previousBalance: 1000, totalDue: 7000 });
+    const first = (await owner.post('/bills', { assignmentId: a, billingPeriod: '2026-08' }).expect(201)).body.data;
+    expect(first.previousBalance).toBe(1000);
+    expect(first.items.at(-1)).toMatchObject({ type: 'PREVIOUS_BALANCE', amount: 1000 });
+    expect((await owner.get(`/tenants/${t.id}`)).body.data.outstanding).toBe(7000);
+    // cancelling and regenerating the first bill still includes it (never lost, never doubled)
+    await owner.post(`/bills/${first.id}/cancel`, {}).expect(200);
+    expect((await owner.post('/bills', { assignmentId: a, billingPeriod: '2026-08' }).expect(201)).body.data.totalDue).toBe(7000);
+    // the next bill carries the unpaid first bill (which already contains the opening balance) once
+    const next = (await owner.post('/bills', { assignmentId: a, billingPeriod: '2026-09' }).expect(201)).body.data;
+    expect(next).toMatchObject({ previousBalance: 7000, totalDue: 13000 });
+    await owner.post('/room-assignments', { tenantId: t.id, roomId: r, startDate: '2026-07-01', agreedRent: 1, openingBalance: -5 }).expect(400);
+  });
 });

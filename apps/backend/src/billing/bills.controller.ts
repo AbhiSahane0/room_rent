@@ -34,8 +34,8 @@ export class BillsController {
   /** Generated on demand from the stored bill, so the PDF always matches the database. */
   @Get('bills/:id/pdf')
   @Throttle({ default: { limit: 40, ttl: 60_000 } })
-  async pdf(@CurrentUser() u: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Query('download') download?: string) {
-    const { buffer, fileName } = await this.service.pdf(u.userId, id);
+  async pdf(@CurrentUser() u: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Query('download') download?: string, @Query('format') format?: string) {
+    const { buffer, fileName } = await this.service.pdf(u.userId, id, format === 'invoice' ? 'invoice' : 'statement');
     return new StreamableFile(buffer, {
       type: 'application/pdf',
       disposition: `${download === '1' ? 'attachment' : 'inline'}; filename="${fileName}"`,

@@ -224,6 +224,8 @@ model RoomAssignment {
   ratePerUnit         Decimal?         @map("rate_per_unit") @db.Decimal(8, 2)
   fixedElectricity    Decimal?         @map("fixed_electricity") @db.Decimal(12, 2)
   initialMeterReading Decimal?         @map("initial_meter_reading") @db.Decimal(12, 2)
+  /// Balance owed before this system was used (e.g. migrated from a spreadsheet). Added to the first bill.
+  openingBalance      Decimal          @default(0) @map("opening_balance") @db.Decimal(12, 2)
   finalMeterReading   Decimal?         @map("final_meter_reading") @db.Decimal(12, 2)
   moveOutNotes        String?          @map("move_out_notes")
   notes               String?

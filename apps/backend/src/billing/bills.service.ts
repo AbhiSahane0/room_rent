@@ -7,6 +7,7 @@ import { paginate, skipTake } from '../common/pagination';
 import { PrismaService } from '../common/prisma.service';
 import { PropertiesService } from '../properties/properties.service';
 import { renderBillPdf } from './bill-pdf';
+import { renderBillStatementPdf } from './bill-statement-pdf';
 import { calculateBill, calculateElectricity, fromPaise, rentForPeriod, toPaise } from './bill-calculator';
 import { CreateBillDto, ListBillsQuery, PreviewBillDto, RecurringChargeDto } from './bills.dto';
 
@@ -33,6 +34,8 @@ interface Draft {
   charges: { type: ChargeType; name: string; amount: number }[];
   totals: ReturnType<typeof calculateBill>;
   carry: { id: string; billNumber: string; balance: number }[];
+  /** Pre-system balance, only on an assignment's first live bill. */
+  openingBalance: number;
   notes?: string;
 }
 
@@ -116,13 +119,16 @@ export class BillsService {
     const carry = open
       .map((b) => ({ id: b.id, billNumber: b.billNumber, balance: fromPaise(toPaise(money(b.totalDue)) - toPaise(money(b.paidAmount))) }))
       .filter((b) => b.balance > 0);
-    const previousBalance = fromPaise(carry.reduce((s, b) => s + toPaise(b.balance), 0));
+    // A balance owed from before this system (e.g. a spreadsheet) joins the very first bill of the assignment.
+    const hasEarlierBill = await db.bill.findFirst({ where: { assignmentId: assignment.id, status: { not: 'CANCELLED' }, billingPeriod: { lt: period } }, select: { id: true } });
+    const openingBalance = hasEarlierBill ? 0 : money(assignment.openingBalance);
+    const previousBalance = fromPaise(carry.reduce((s, b) => s + toPaise(b.balance), 0) + toPaise(openingBalance));
 
     const totals = calculateBill({ rent, electricity: electricity.amount, charges, lateFee: dto.lateFee, discount: dto.discount, previousBalance });
     const dueDate = dto.dueDate ? parseDate(dto.dueDate, 'Due date') : new Date(Date.UTC(period.getUTCFullYear(), period.getUTCMonth(), assignment.room.property.dueDayOfMonth));
     if (dueDate < period) throw new BadRequestException('Due date cannot be before the billing month');
 
-    return { draft: { assignment, period, dueDate, rent, electricity, charges, totals, carry, notes: dto.notes }, suggestedPeriod, needsReading };
+    return { draft: { assignment, period, dueDate, rent, electricity, charges, totals, carry, openingBalance, notes: dto.notes }, suggestedPeriod, needsReading };
   }
 
   async preview(userId: string, dto: PreviewBillDto) {
@@ -141,6 +147,7 @@ export class BillsService {
       charges: draft.charges,
       totals: draft.totals,
       carriedBills: draft.carry,
+      openingBalance: draft.openingBalance,
       recurringCharges: recurring.map((c) => ({ id: c.id, type: c.type, name: c.name, amount: c.amount })),
     };
   }
@@ -172,7 +179,7 @@ export class BillsService {
         if (totals.lateFee > 0) items.push({ type: 'LATE_FEE', description: 'Late fee', amount: totals.lateFee });
         if (totals.discount > 0) items.push({ type: 'DISCOUNT', description: 'Discount', amount: -totals.discount });
         if (totals.previousBalance > 0) {
-          items.push({ type: 'PREVIOUS_BALANCE', description: 'Previous balance', amount: totals.previousBalance, meta: { bills: draft.carry.map((b) => b.billNumber) } });
+          items.push({ type: 'PREVIOUS_BALANCE', description: 'Previous balance', amount: totals.previousBalance, meta: { bills: draft.carry.map((b) => b.billNumber), openingBalance: draft.openingBalance } });
         }
 
         const created = await tx.bill.create({
@@ -278,11 +285,13 @@ export class BillsService {
     return paginate(bills.map((b) => this.present(b)), total, q);
   }
 
-  async pdf(userId: string, id: string) {
+  /** `statement` (default) is the owner's one-table rent form; `invoice` is the formal A4 invoice. */
+  async pdf(userId: string, id: string, format: 'statement' | 'invoice' = 'statement') {
     const bill = await this.get(userId, id);
     const property = await this.prisma.property.findUniqueOrThrow({ where: { id: bill.property.id }, select: { billFooterNote: true } });
     try {
-      const buffer = await renderBillPdf({
+      const render = format === 'invoice' ? renderBillPdf : renderBillStatementPdf;
+      const buffer = await render({
         ...bill,
         status: bill.storedStatus,
         overdue: bill.status === 'OVERDUE',

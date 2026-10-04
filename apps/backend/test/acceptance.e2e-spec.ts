@@ -85,7 +85,8 @@ describe('Final acceptance scenario (API)', () => {
     }).expect(200);
     const text = (await pdfParse(res.body)).text;
     expect(text).toContain('Rahul Sharma');
-    expect(text).toContain('₹9,900');
+    expect(text).toContain('Monthly Payment');
+    expect(text.replace(/\s+/g, '')).toContain('9900');
   });
 
   it('20-21. records a ₹5,000 payment and shows the remaining balance', async () => {

@@ -13,6 +13,8 @@ export class AssignmentTermsDto {
   @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) ratePerUnit?: number;
   @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) fixedElectricity?: number;
   @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) initialMeterReading?: number;
+  /** Amount already owed before this system was used. It is added to the tenant's first bill. */
+  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) openingBalance?: number;
   @IsOptional() @IsString() @MaxLength(500) notes?: string;
 }
 
