@@ -31,6 +31,9 @@ const table = (wb: ExcelJS.Workbook, name: string) => {
   return rows;
 };
 
+const TODAY = new Date().toISOString().slice(0, 10);
+const THIS_MONTH = TODAY.slice(0, 7);
+
 describe('Excel export (e2e)', () => {
   let app: NestExpressApplication;
   let prisma: PrismaService;
@@ -48,10 +51,10 @@ describe('Excel export (e2e)', () => {
     const r102 = (await owner.post('/rooms', { propertyId, roomNumber: '102', defaultRent: 5000, electricityMode: 'NONE' })).body.data.id;
     const rahul = (await owner.post('/tenants', { fullName: 'Rahul Sharma', phone: '9876543210', joiningDate: '2026-04-01', assignment: { roomId: r101, startDate: '2026-04-01', agreedRent: 8000, initialMeterReading: 1200 } })).body.data;
     const left = (await owner.post('/tenants', { fullName: 'Left Behind', phone: '9000000099', joiningDate: '2026-04-01', assignment: { roomId: r102, startDate: '2026-04-01', agreedRent: 5000 } })).body.data;
-    const bill = (await owner.post('/bills', { assignmentId: rahul.currentAssignment.id, billingPeriod: '2026-09', electricity: { currentReading: 1350 }, charges: [{ type: 'MAINTENANCE', amount: 500 }] })).body.data;
-    await owner.post(`/bills/${bill.id}/payments`, { amount: 5000, paymentDate: '2026-09-10', method: 'UPI', reference: 'UTR1' }).expect(201);
-    await owner.post('/bills', { assignmentId: left.currentAssignment.id, billingPeriod: '2026-09' }).expect(201);
-    await owner.post(`/room-assignments/${left.currentAssignment.id}/move-out`, { moveOutDate: '2026-09-30' }).expect(200);
+    const bill = (await owner.post('/bills', { assignmentId: rahul.currentAssignment.id, billingPeriod: THIS_MONTH, electricity: { currentReading: 1350 }, charges: [{ type: 'MAINTENANCE', amount: 500 }] })).body.data;
+    await owner.post(`/bills/${bill.id}/payments`, { amount: 5000, paymentDate: TODAY, method: 'UPI', reference: 'UTR1' }).expect(201);
+    await owner.post('/bills', { assignmentId: left.currentAssignment.id, billingPeriod: THIS_MONTH }).expect(201);
+    await owner.post(`/room-assignments/${left.currentAssignment.id}/move-out`, { moveOutDate: TODAY }).expect(200);
     // someone else's data must never appear
     const p2 = (await other.post('/properties', { name: 'Secret House', address: 'X', city: 'Y', state: 'Z', pincode: '111111' })).body.data.id;
     await other.post('/rooms', { propertyId: p2, roomNumber: 'S1', defaultRent: 1, electricityMode: 'NONE' });
@@ -67,7 +70,7 @@ describe('Excel export (e2e)', () => {
     expect(res.headers['content-type']).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     expect(res.headers['content-disposition']).toMatch(/^attachment; filename="RentManager-export-\d{4}-\d{2}-\d{2}\.xlsx"$/);
     const wb = await open(res.body as Buffer);
-    expect(wb.worksheets.map((w) => w.name)).toEqual(['Summary', 'Rooms', 'Tenants', 'Stays', 'Bills', 'Bill items', 'Payments', 'Electricity', 'Outstanding', 'Monthly']);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Summary', 'Tenant Ledger', 'Rooms', 'Tenants', 'Stays', 'Bills', 'Bill items', 'Payments', 'Electricity', 'Outstanding', 'Monthly']);
   });
 
   it('exports rooms, tenants with what they owe, bills, payments and electricity readings', async () => {

@@ -35,7 +35,7 @@ describe('Bill PDF', () => {
     const roomId = (await owner.post('/rooms', { propertyId, roomNumber: '101', defaultRent: 150000, electricityMode: 'METER', ratePerUnit: 8 })).body.data.id;
     const t = (await owner.post('/tenants', { fullName: 'Rahul Sharma', phone: '9876543210', joiningDate: '2026-04-01', assignment: { roomId, startDate: '2026-04-01', agreedRent: 150000, initialMeterReading: 1200 } })).body.data;
     billId = (await owner.post('/bills', {
-      assignmentId: t.currentAssignment.id, billingPeriod: '2026-09', electricity: { currentReading: 1350 },
+      assignmentId: t.currentAssignment.id, billingPeriod: '2026-09', dueDate: '2026-09-10', electricity: { currentReading: 1350 },
       charges: [{ type: 'MAINTENANCE', amount: 500 }, { type: 'WATER', amount: 200 }], discount: 300,
     })).body.data.id;
     await owner.post(`/bills/${billId}/payments`, { amount: 5000, paymentDate: '2026-09-10', method: 'UPI', reference: 'UTR998877' }).expect(201);

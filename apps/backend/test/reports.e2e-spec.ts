@@ -31,11 +31,11 @@ describe('Dashboard & reports (e2e)', () => {
     rahul = t1.id; amit = t2.id;
     const a1 = t1.currentAssignment.id; const a2 = t2.currentAssignment.id;
 
-    const aug = (await owner.post('/bills', { assignmentId: a1, billingPeriod: '2026-08' })).body.data; // 9000
+    const aug = (await owner.post('/bills', { assignmentId: a1, billingPeriod: '2026-08', dueDate: '2026-08-10' })).body.data; // 9000
     await owner.post(`/bills/${aug.id}/payments`, { amount: 9000, paymentDate: '2026-08-05', method: 'CASH' }).expect(201);
-    const sep1 = (await owner.post('/bills', { assignmentId: a1, billingPeriod: '2026-09', charges: [{ type: 'WATER', amount: 1000 }] })).body.data; // 10000
+    const sep1 = (await owner.post('/bills', { assignmentId: a1, billingPeriod: '2026-09', dueDate: '2026-09-10', charges: [{ type: 'WATER', amount: 1000 }] })).body.data; // 10000
     sepBillRahul = sep1.id;
-    const sep2 = (await owner.post('/bills', { assignmentId: a2, billingPeriod: '2026-09' })).body.data; // 5000
+    const sep2 = (await owner.post('/bills', { assignmentId: a2, billingPeriod: '2026-09', dueDate: '2026-09-10' })).body.data; // 5000
     await owner.post(`/bills/${sep1.id}/payments`, { amount: 6000, paymentDate: '2026-09-10', method: 'UPI' }).expect(201);
     await owner.post(`/bills/${sep2.id}/payments`, { amount: 5000, paymentDate: '2026-09-12', method: 'CASH' }).expect(201);
   });
