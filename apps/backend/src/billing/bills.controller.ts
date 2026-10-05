@@ -50,6 +50,12 @@ export class BillsController {
     return this.service.cancel(u.userId, id, dto.reason);
   }
 
+  @Delete('bills/:id')
+  @ResponseMessage('Bill deleted')
+  remove(@CurrentUser() u: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.remove(u.userId, id);
+  }
+
   @Get('room-assignments/:id/charges')
   charges(@CurrentUser() u: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.listCharges(u.userId, id);

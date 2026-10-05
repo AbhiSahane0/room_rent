@@ -23,8 +23,8 @@ export function GenerateBillPage() {
   const [tenantId, setTenantId] = useState<string | undefined>(fixedTenant);
   const [period, setPeriod] = useState<string | undefined>();
   const [reading, setReading] = useState('');
-  const [prevReading, setPrevReading] = useState('');
-  const [rate, setRate] = useState('');
+  const [prevReading, setPrevReading] = useState<string | null>(null);
+  const [rate, setRate] = useState<string | null>(null);
   const [manual, setManual] = useState(false);
   const [manualAmount, setManualAmount] = useState('');
   const [charges, setCharges] = useState<ChargeRow[]>([]);
@@ -48,15 +48,15 @@ export function GenerateBillPage() {
       tenantId, billingPeriod: period, dueDate,
       electricity: {
         ...(manual ? { currentReading: num(reading), overrideAmount: num(manualAmount) ?? 0 } : { currentReading: num(reading) }),
-        ...(prevReading.trim() !== '' && num(prevReading) !== undefined ? { previousReading: num(prevReading) } : {}),
-        ...(rate.trim() !== '' && num(rate) !== undefined ? { ratePerUnit: num(rate) } : {}),
+        ...(prevReading !== null && num(prevReading) !== undefined ? { previousReading: num(prevReading) } : {}),
+        ...(rate !== null && num(rate) !== undefined ? { ratePerUnit: num(rate) } : {}),
       },
       charges: charges.filter((c) => num(c.amount)).map((c) => ({ type: c.type, name: c.name, amount: Number(c.amount) })),
       lateFee: num(lateFee), discount: num(discount),
     };
   }, [tenantId, period, dueDate, manual, reading, prevReading, rate, manualAmount, charges, lateFee, discount]);
 
-  const debounced = useDebounced(request, 400);
+  const debounced = useDebounced(request, 200);
   const preview = useBillPreview(debounced);
   const data = preview.data;
   const saveRate = useChangeElectricity(data?.assignmentId ?? '');
@@ -70,6 +70,30 @@ export function GenerateBillPage() {
   }
 
   const el = data?.electricity;
+
+  // Instant on-screen totals while typing; the server's verified numbers replace them a moment later.
+  const live = useMemo(() => {
+    if (!data) return null;
+    const p = (n: number) => Math.round(n * 100);
+    let elecP = p(data.totals.electricity);
+    let units = data.electricity.units;
+    let r = data.electricity.ratePerUnit ?? 0;
+    if (data.electricity.mode === 'METER') {
+      if (manual) elecP = p(num(manualAmount) ?? 0);
+      else {
+        const cur = num(reading);
+        const prev = num(prevReading ?? String(data.electricity.previousReading ?? 0)) ?? 0;
+        r = num(rate ?? String(data.electricity.ratePerUnit ?? '')) ?? 0;
+        units = cur === undefined || cur < prev ? 0 : Math.round((cur - prev) * 100) / 100;
+        elecP = Math.round(units * 100 * p(r) / 100);
+      }
+    }
+    const otherP = charges.reduce((sum, c) => sum + p(num(c.amount) ?? 0), 0);
+    const lateP = p(num(lateFee) ?? 0);
+    const discP = p(num(discount) ?? 0);
+    const gross = p(data.totals.rent) + elecP + otherP + lateP + p(data.totals.previousBalance);
+    return { electricity: elecP / 100, units, rate: r, total: (gross - discP) / 100 };
+  }, [data, manual, manualAmount, reading, prevReading, rate, charges, lateFee, discount]);
   const previewError = preview.error ? (preview.error instanceof ApiError ? preview.error.message : friendlyError(preview.error)) : null;
   const needsReading = el?.mode === 'METER' && !manual && (el?.needsReading ?? true);
   const canGenerate = !!data && !previewError && !settling && !needsReading && !create.isPending;
@@ -84,7 +108,7 @@ export function GenerateBillPage() {
   };
 
   const tenantOptions = (tenantsQuery.data?.items ?? []).filter((t) => t.assignmentId).map((t) => ({ value: t.id, label: `${t.fullName} · Room ${t.room?.roomNumber}` }));
-  const reset = () => { setTenantId(undefined); setSeeded(false); setPeriod(undefined); setCharges([]); setReading(''); setPrevReading(''); };
+  const reset = () => { setTenantId(undefined); setSeeded(false); setPeriod(undefined); setCharges([]); setReading(''); setPrevReading(null); setRate(null); };
 
   return (
     <Page title="Generate Bill" subtitle={current?.name} back>
@@ -107,20 +131,21 @@ export function GenerateBillPage() {
               {el && el.mode !== 'NONE' ? (
                 <Card className="space-y-3">
                   <div className="flex items-center gap-2"><Icon icon={Zap} tone="primary" /><span className="text-heading">Electricity</span></div>
+                  <p className="text-small text-ink-soft">Enter the meter readings for {formatYM(period ?? toYM(data.billingPeriod))}. This bill covers {formatYM(period ?? toYM(data.billingPeriod))} rent and {formatYM(period ?? toYM(data.billingPeriod))} electricity, payable by {formatDate(dueDate ?? data.dueDate)}.</p>
                   {el.mode === 'METER' ? (
                     <>
                       <div className="grid grid-cols-2 gap-3">
-                        <Input label="Previous" inputMode="decimal" value={prevReading !== '' ? prevReading : String(el.previousReading ?? 0)} onChange={(e) => setPrevReading(e.target.value)} />
+                        <Input label="Previous" inputMode="decimal" value={prevReading ?? String(el.previousReading ?? 0)} onChange={(e) => setPrevReading(e.target.value)} />
                         <Input label="Current" placeholder="Enter reading" inputMode="decimal" value={reading} onChange={(e) => setReading(e.target.value)} disabled={manual} />
                       </div>
-                      <Input label="Rate per unit" prefix="₹" inputMode="decimal" value={rate !== '' ? rate : String(el.ratePerUnit ?? '')} onChange={(e) => setRate(e.target.value)} disabled={manual}
-                        hint={rate !== '' && num(rate) !== undefined ? 'Used for this bill only.' : "This tenant's rate. Change it for one bill, or save it for all future bills."} />
-                      {rate !== '' && num(rate) !== undefined && num(rate) !== data.electricity.defaultRatePerUnit ? (
-                        <button type="button" disabled={saveRate.isPending} onClick={() => saveRate.mutate({ ratePerUnit: num(rate) }, { onSuccess: () => setRate('') })} className="text-small font-medium text-primary">Save ₹{rate} as this tenant's rate for all future bills</button>
+                      <Input label="Rate per unit" prefix="₹" inputMode="decimal" value={rate ?? String(el.ratePerUnit ?? '')} onChange={(e) => setRate(e.target.value)} disabled={manual}
+                        hint={rate !== null && num(rate) !== undefined ? 'Used for this bill only.' : "This tenant's rate. Change it for one bill, or save it for all future bills."} />
+                      {rate !== null && num(rate) !== undefined && num(rate) !== data.electricity.defaultRatePerUnit ? (
+                        <button type="button" disabled={saveRate.isPending} onClick={() => saveRate.mutate({ ratePerUnit: num(rate) }, { onSuccess: () => setRate(null) })} className="text-small font-medium text-primary">Save ₹{rate} as this tenant's rate for all future bills</button>
                       ) : null}
-                      {prevReading === '' && (el.previousReading ?? 0) === 0 ? <p className="text-caption text-warning">No earlier meter reading is on record. Type the last reading from the meter in Previous, otherwise the whole meter value is billed.</p> : null}
-                      {prevReading !== '' ? <p className="text-caption text-warning">Previous reading changed by you. Use this only if the stored reading is wrong or the meter was replaced.</p> : null}
-                      {!manual && el.currentReading != null ? <p className="text-ink-soft">{el.units} units × {formatINR(el.ratePerUnit)} = <span className="font-medium text-ink">{formatINR(el.amount)}</span></p> : null}
+                      {prevReading === null && (el.previousReading ?? 0) === 0 ? <p className="text-caption text-warning">No earlier meter reading is on record. Type the last reading from the meter in Previous, otherwise the whole meter value is billed.</p> : null}
+                      {prevReading !== null ? <p className="text-caption text-warning">Previous reading changed by you. Use this only if the stored reading is wrong or the meter was replaced.</p> : null}
+                      {!manual && live && (el.currentReading != null || num(reading) !== undefined) ? <p className="text-ink-soft">{settling ? live.units : el.units} units × {formatINR(settling ? live.rate : el.ratePerUnit)} = <span className="font-medium text-ink">{formatINR(settling ? live.electricity : el.amount)}</span></p> : null}
                     </>
                   ) : <p className="text-ink-soft">Fixed monthly amount: {formatINR(el.calculatedAmount)}</p>}
                   {manual ? <Input label="Amount" prefix="₹" inputMode="decimal" placeholder="0" value={manualAmount} onChange={(e) => setManualAmount(e.target.value)} hint="Replaces the calculated amount, for example when the meter is faulty." /> : null}
@@ -163,7 +188,7 @@ export function GenerateBillPage() {
               <p className="text-center text-caption text-ink-muted">Totals are calculated and verified by the server for {formatYM(period ?? toYM(data.billingPeriod))}. Due {formatDate(dueDate ?? data.dueDate)}.</p>
 
               <div className="sticky bottom-2 z-10 space-y-2 rounded-lg border border-line bg-surface p-3 shadow-lg">
-                <div className="flex items-end justify-between"><span className="text-ink-soft">Total due</span><span className="text-title">{formatINR(data.totals.totalDue)}</span></div>
+                <div className="flex items-end justify-between"><span className="text-ink-soft">Total due</span><span className="text-title">{formatINR(settling && live ? live.total : data.totals.totalDue)}</span></div>
                 {submitError ? <Notice tone="danger">{submitError}</Notice> : null}
                 <Button icon={Receipt} onClick={() => void generate()} disabled={!canGenerate} loading={create.isPending}>{create.isPending ? 'Generating bill...' : 'Generate Bill'}</Button>
               </div>

@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { friendlyError } from '@/api/client';
 import { Button, Card, ConfirmDialog, ErrorState, Icon, LinkButton, Notice, SectionHeader, SkeletonList } from '@/components/ui';
 import { Page } from '@/components/layout/Page';
-import { useBill, useCancelBill } from '@/features/bills/api';
+import { useBill, useCancelBill, useDeleteBill } from '@/features/bills/api';
 import { BillActions } from '@/features/bills/BillActions';
 import { BillStatusBadge } from '@/features/bills/BillCard';
 import { METHOD_LABEL } from '@/features/payments/constants';
@@ -30,7 +30,9 @@ export function BillDetailPage() {
   const navigate = useNavigate();
   const { data: bill, isLoading, isError, error, refetch } = useBill(id);
   const cancel = useCancelBill(id);
+  const del = useDeleteBill(id);
   const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   if (isLoading) return <Page title="Bill" back="/bills"><SkeletonList count={2} /></Page>;
@@ -101,6 +103,17 @@ export function BillDetailPage() {
           {actionError ? <Notice tone="danger">{actionError}</Notice> : null}
         </div>
       ) : null}
+
+      {cancelled && bill.paidAmount === 0 ? (
+        <div className="mt-6 space-y-2">
+          <Button variant="danger" onClick={() => { setActionError(null); setDeleting(true); }}>Delete Bill</Button>
+          {actionError ? <Notice tone="danger">{actionError}</Notice> : null}
+        </div>
+      ) : null}
+
+      <ConfirmDialog open={deleting} title="Delete this cancelled bill?" message="The bill is removed for good and will no longer appear in your bills or exports. This cannot be undone." confirmLabel="Delete bill" destructive loading={del.isPending}
+        onConfirm={async () => { try { await del.mutateAsync(); setDeleting(false); navigate('/bills', { replace: true }); } catch (e) { setDeleting(false); setActionError(friendlyError(e)); } }}
+        onCancel={() => setDeleting(false)} />
 
       <ConfirmDialog open={confirming} title="Cancel this bill?" message="The bill is kept for your records but no longer counts toward what the tenant owes. You can generate it again afterwards." confirmLabel="Cancel bill" destructive loading={cancel.isPending}
         onConfirm={async () => { try { await cancel.mutateAsync(undefined); setConfirming(false); navigate(`/bills/${id}`, { replace: true }); } catch (e) { setConfirming(false); setActionError(friendlyError(e)); } }}

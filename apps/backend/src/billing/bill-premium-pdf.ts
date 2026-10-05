@@ -1,7 +1,7 @@
 import * as path from 'path';
 import PDFDocument from 'pdfkit';
 import * as QRCode from 'qrcode';
-import { formatDate, formatINR } from '../common/format';
+import { formatDate, formatDateLocal, formatINR } from '../common/format';
 import type { PdfBill } from './bill-pdf';
 import { monthLabel } from './bills.service';
 
@@ -43,7 +43,7 @@ export function breakdownLines(bill: PdfBill): Line[] {
     else if (i.type === 'ELECTRICITY') {
       const detail =
         m.currentReading != null
-          ? `Meter ${m.previousReading} to ${m.currentReading}  ·  ${m.units} units × ${formatINR(m.ratePerUnit)}`
+          ? `${monthLabel(bill.billingPeriod)} usage  ·  Meter ${m.previousReading} to ${m.currentReading}  ·  ${m.units} units × ${formatINR(m.ratePerUnit)}`
           : m.mode === 'FIXED'
             ? 'Fixed monthly amount'
             : m.isOverride
@@ -160,7 +160,7 @@ export async function renderBillPremiumPdf(bill: PdfBill): Promise<Buffer> {
       text(value, M + cw + 30 + 80, y + 31.5 + row * 14.5, { font: 'S', size: 9.2, width: cw - 126, align: 'right' });
     };
     detail('Bill number', bill.billNumber, 0);
-    detail('Issued on', formatDate(bill.createdAt), 1);
+    detail('Issued on', formatDateLocal(bill.createdAt), 1);
     detail('Due date', formatDate(bill.dueDate), 2);
     detail('Billing period', monthLabel(bill.billingPeriod), 3);
 
