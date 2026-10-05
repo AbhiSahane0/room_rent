@@ -4,8 +4,9 @@ Do the steps in this order. Each step gives you a value the next one needs.
 
 ## 1. Supabase (database)
 1. Create a project. Settings > Database > Connection string.
-2. Copy the **pooled** string (port 6543) and add `?pgbouncer=true&connection_limit=1` -> this is `DATABASE_URL`.
-3. Copy the **direct** string (port 5432) -> this is `DIRECT_URL`.
+2. Click **Connect** at the top, choose **Session pooler** and copy the string: it looks like `postgresql://postgres.<project>:[YOUR-PASSWORD]@aws-0-<region>.pooler.supabase.com:5432/postgres`. Put your database password in place of `[YOUR-PASSWORD]` (if it has symbols such as `@` or `#`, write them as `%40`, `%23`).
+3. Use that **same** string for both `DATABASE_URL` (add `?connection_limit=5` at the end) and `DIRECT_URL`.
+   Do **not** use the *Direct connection* (`db.<project>.supabase.co`) on Render: it only works over IPv6 and Render is IPv4, which fails with `P1001: Can't reach database server`.
 4. Put both values in `apps/backend/.env` (or a `.env` at the repo root) on your computer, then run `npm install && npm run db:deploy`. Supabase is the PostgreSQL database, so you do not install Postgres. Use `db:deploy`, not `db:migrate` (that one is for local schema development).
 5. Create the owner login and import your Excel register (see README "Import an existing Excel register"):
    `npm run db:import -- /path/RENT.xlsx --dry-run`, then without `--dry-run`.

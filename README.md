@@ -100,7 +100,7 @@ Run it on the machine that holds your `.env` (so it writes to Supabase), and nev
 
 ### Supabase (PostgreSQL)
 1. Create a project. Settings > Database > Connection string.
-2. `DATABASE_URL` = the **pooled** string (port 6543, add `?pgbouncer=true&connection_limit=1`), `DIRECT_URL` = the **direct** string (port 5432).
+2. On your own computer you can use the *Direct connection* string for both `DATABASE_URL` and `DIRECT_URL`. **On Render use the *Session pooler* string for both** (the direct address is IPv6 only and fails there with `P1001`); see docs/DEPLOYMENT.md.
 3. Run migrations once from your machine (or CI): `npm run db:deploy`. Both `DATABASE_URL` and `DIRECT_URL` must be in `.env`; if you are not using the pooled URL, set both to the same connection string.
 4. `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are reserved for future Supabase features; the app talks to Postgres through Prisma only.
    Keep the service-role key on the server. Do not enable public API access to these tables (the API is the only client).

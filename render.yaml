@@ -23,8 +23,9 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
-      # Supabase: DATABASE_URL = pooled string (port 6543, add ?pgbouncer=true&connection_limit=1)
-      #           DIRECT_URL   = direct string (port 5432), used for migrations on start
+      # Supabase: use the "Session pooler" string (Connect > Session pooler; host aws-0-<region>.pooler.supabase.com, user postgres.<project>)
+      # for BOTH DATABASE_URL and DIRECT_URL, and add ?connection_limit=5 to DATABASE_URL. Do NOT use the "Direct connection"
+      # (db.<project>.supabase.co): it is IPv6 only and Render cannot reach it (error P1001).
       - key: DATABASE_URL
         sync: false
       - key: DIRECT_URL

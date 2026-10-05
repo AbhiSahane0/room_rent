@@ -20,9 +20,10 @@ COPY --from=build /app/prisma prisma
 COPY --from=build /app/apps/backend/dist apps/backend/dist
 COPY --from=build /app/apps/backend/assets apps/backend/assets
 COPY --from=build /app/apps/backend/package.json apps/backend/package.json
+COPY --from=build /app/apps/backend/scripts apps/backend/scripts
 USER node
 WORKDIR /app/apps/backend
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://localhost:'+(process.env.PORT||3000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 # Applies pending migrations, then starts the API.
-CMD ["sh", "-c", "npx prisma migrate deploy --schema ../../prisma/schema.prisma && node dist/main.js"]
+CMD ["sh", "-c", "node scripts/check-db-url.js; npx prisma migrate deploy --schema ../../prisma/schema.prisma && node dist/main.js"]
