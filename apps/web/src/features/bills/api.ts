@@ -50,6 +50,11 @@ export function useCreateBill() {
   return useMutation({ mutationFn: (body: BillRequest) => api.post<BillDetail>('/bills', body), onSuccess: invalidate });
 }
 
+export function useDeleteBill(id: string) {
+  const invalidate = useInvalidateCore();
+  return useMutation({ mutationFn: () => api.delete<null>(`/bills/${id}`), onSuccess: invalidate });
+}
+
 export function useCancelBill(id: string) {
   const invalidate = useInvalidateCore();
   return useMutation({ mutationFn: (reason?: string) => api.post<BillDetail>(`/bills/${id}/cancel`, { reason }), onSuccess: invalidate });

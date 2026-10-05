@@ -5,9 +5,13 @@ import type { CollectionReport, DashboardData, OccupancyReport, OutstandingRepor
 export const useDashboard = (propertyId?: string) =>
   useQuery({ queryKey: ['dashboard', propertyId], queryFn: () => api.get<DashboardData>(`/dashboard${propertyId ? `?propertyId=${propertyId}` : ''}`) });
 
-/** Display name for the greeting; falls back to "Owner" while loading. */
+/** The dashboard greeting should use the owner’s display name, not the default admin username. */
 export function ownerName(username?: string) {
-  return username ? username.charAt(0).toUpperCase() + username.slice(1) : 'Owner';
+  if (!username) return 'Narayan';
+  const normalized = username.trim();
+  if (!normalized) return 'Narayan';
+  if (normalized.toLowerCase() === 'admin') return 'Narayan';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
 export const useCollectionReport = (propertyId: string | undefined, month: string) =>

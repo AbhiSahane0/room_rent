@@ -165,7 +165,7 @@ export class ReportsService {
   /** Smaller numbers the Home screen shows next to the big ones. All run in parallel with the other dashboard queries. */
   async extrasFor(propertyIds: string[]) {
     const today = todayUtc();
-    const thisMonth = ymOf(today);
+    const thisMonth = shift(ymOf(today), -1); // the month whose bills are being prepared now (last month's readings)
     const week = new Date(today.getTime() - 6 * MS_DAY);
     const inProperty = { room: { propertyId: { in: propertyIds } } };
     const [rentRoll, lastWeek, recent, toBill] = await Promise.all([

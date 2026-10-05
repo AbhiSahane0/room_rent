@@ -46,11 +46,13 @@ function addTable(wb: ExcelJS.Workbook, name: string, cols: Col[], rows: Record<
 export class ExcelExportService {
   constructor(private readonly prisma: PrismaService, private readonly properties: PropertiesService, private readonly audit: AuditService) {}
 
-  /** Everything the owner has in the app, as one workbook. */
+  /** Exports the current month only. */
   async build(userId: string, propertyId?: string): Promise<{ buffer: Buffer; fileName: string }> {
     const ids = propertyId ? [(await this.properties.assertOwned(userId, propertyId)).id] : await this.properties.ownedIds(userId);
     const inProp = { propertyId: { in: ids } };
     const today = todayUtc();
+    const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+    const nextMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 1));
 
     const [properties, rooms, tenants, assignments, bills, payments] = await Promise.all([
       this.prisma.property.findMany({ where: { id: { in: ids } }, orderBy: { createdAt: 'asc' } }),
@@ -68,7 +70,7 @@ export class ExcelExportService {
       }),
       this.prisma.bill.findMany({
         relationLoadStrategy: 'join', where: inProp, orderBy: [{ billingPeriod: 'asc' }, { billNumber: 'asc' }],
-        include: { tenant: { select: { fullName: true, status: true } }, room: { select: { roomNumber: true } }, property: { select: { name: true } }, items: { orderBy: { sortOrder: 'asc' }, select: { type: true, description: true, amount: true, meta: true } } },
+        include: { tenant: { select: { fullName: true, status: true, phone: true } }, room: { select: { roomNumber: true } }, property: { select: { name: true } }, items: { orderBy: { sortOrder: 'asc' }, select: { type: true, description: true, amount: true, meta: true } } },
       }),
       this.prisma.payment.findMany({
         relationLoadStrategy: 'join', where: { bill: inProp }, orderBy: [{ paymentDate: 'asc' }, { createdAt: 'asc' }],
@@ -76,12 +78,13 @@ export class ExcelExportService {
       }),
     ]);
 
-    // Balance per tenant: open bills only (a balance carried into a later bill is counted there).
-    const open = bills.filter((b) => b.status !== 'CANCELLED' && b.status !== 'DRAFT' && b.carriedForwardToId == null && b.totalDue.toNumber() > b.paidAmount.toNumber());
+    const monthBills = bills.filter((b) => b.billingPeriod >= monthStart && b.billingPeriod < nextMonth);
+    const monthPayments = payments.filter((p) => p.paymentDate >= monthStart && p.paymentDate < nextMonth);
+    const open = monthBills.filter((b) => b.status !== 'CANCELLED' && b.status !== 'DRAFT' && b.carriedForwardToId == null && b.totalDue.toNumber() > b.paidAmount.toNumber());
     const balance = new Map<string, number>();
     for (const b of open) balance.set(b.tenantId, Math.round(((balance.get(b.tenantId) ?? 0) + b.totalDue.toNumber() - b.paidAmount.toNumber()) * 100) / 100);
 
-    const live = bills.filter((b) => b.status !== 'CANCELLED' && b.status !== 'DRAFT');
+    const live = monthBills.filter((b) => b.status !== 'CANCELLED' && b.status !== 'DRAFT');
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Rent Manager';
     wb.created = new Date();
@@ -90,6 +93,8 @@ export class ExcelExportService {
     const sum = (list: { toNumber(): number }[]) => Math.round(list.reduce((s, v) => s + v.toNumber(), 0) * 100) / 100;
     const owedFormer = [...balance.entries()].filter(([id]) => tenants.find((t) => t.id === id)?.status !== 'ACTIVE').reduce((s, [, v]) => s + v, 0);
     const owedAll = [...balance.values()].reduce((s, v) => s + v, 0);
+    const tenantDeposit = new Map<string, number>();
+    for (const a of assignments) tenantDeposit.set(a.tenantId, num(a.securityDeposit) ?? 0);
     const summary = wb.addWorksheet('Summary');
     summary.columns = [{ width: 38 }, { width: 22 }];
     const put = (label: string, value: string | number | Date | null, fmt?: string, bold = false) => {
@@ -108,15 +113,46 @@ export class ExcelExportService {
     put('Tenants (current)', tenants.filter((t) => t.status === 'ACTIVE').length, FORMAT.int);
     put('Tenants (moved out)', tenants.filter((t) => t.status !== 'ACTIVE').length, FORMAT.int);
     put('Bills', live.length, FORMAT.int);
-    put('Payments', payments.length, FORMAT.int);
+    put('Payments', monthPayments.length, FORMAT.int);
     summary.addRow([]);
-    put('Total billed (all time, new charges)', sum(live.map((b) => ({ toNumber: () => b.totalDue.toNumber() - b.previousBalance.toNumber() }))), FORMAT.money);
+    put('Total billed this month', sum(live.map((b) => ({ toNumber: () => b.totalDue.toNumber() - b.previousBalance.toNumber() }))), FORMAT.money);
     put('Balances brought in from before this app', sum(assignments.map((a) => a.openingBalance)), FORMAT.money);
-    put('Total collected (all time)', sum(payments.map((p) => p.amount)), FORMAT.money);
+    put('Total collected this month', sum(monthPayments.map((p) => p.amount)), FORMAT.money);
     put('Outstanding now', Math.round(owedAll * 100) / 100, FORMAT.money, true);
     put('  of which tenants who moved out', Math.round(owedFormer * 100) / 100, FORMAT.money);
     summary.addRow([]);
-    summary.addRow(['Sheets: Rooms, Tenants, Stays, Bills, Bill items, Payments, Electricity, Outstanding, Monthly.']).font = { italic: true, color: { argb: 'FF64748B' } };
+    summary.addRow(['Sheets: Rooms, Tenants, Stays, Bills, Tenant Ledger, Bill items, Payments, Electricity, Outstanding, Monthly.']).font = { italic: true, color: { argb: 'FF64748B' } };
+
+    // ---- Tenant Ledger
+    addTable(wb, 'Tenant Ledger', [
+      { header: 'Resident', key: 'resident', width: 26 }, { header: 'Mobile', key: 'mobile', width: 16 }, { header: 'Apartment', key: 'apartment', width: 12 }, { header: 'Property', key: 'property', width: 22 },
+      { header: 'Month', key: 'month', width: 12, fmt: 'month' }, { header: 'Rent', key: 'rent', width: 12, fmt: 'money' }, { header: 'Personal E', key: 'personalE', width: 12, fmt: 'money' },
+      { header: 'Society Ele', key: 'societyEle', width: 12, fmt: 'money' }, { header: 'Society M', key: 'societyM', width: 12, fmt: 'money' }, { header: 'Previous B', key: 'previousB', width: 12, fmt: 'money' },
+      { header: 'Deposit B', key: 'depositB', width: 12, fmt: 'money' }, { header: 'Total Bill', key: 'totalBill', width: 14, fmt: 'money' }, { header: 'Paid', key: 'paid', width: 12, fmt: 'money' },
+      { header: 'Amount Due', key: 'amountDue', width: 14, fmt: 'money' }, { header: 'Status', key: 'status', width: 14 },
+    ], monthBills.map((b) => {
+      const societyEle = b.items.filter((i) => i.type === 'CHARGE' && /society.*(elec|electric)/i.test(i.description)).reduce((s, i) => s + (num(i.amount) ?? 0), 0);
+      const societyM = b.items.filter((i) => i.type === 'CHARGE' && /(society.*maint|maintenance|society.*m)/i.test(i.description) && !/elec|electric/i.test(i.description)).reduce((s, i) => s + (num(i.amount) ?? 0), 0);
+      const amountDue = Math.round((num(b.totalDue)! - num(b.paidAmount)!) * 100) / 100;
+      const status = STATUS_LABEL[effectiveStatus({ status: b.status, dueDate: b.dueDate }, today)] ?? b.status;
+      return {
+        resident: b.tenant.fullName,
+        mobile: b.tenant.phone ?? '',
+        apartment: b.room.roomNumber,
+        property: b.property.name,
+        month: b.billingPeriod,
+        rent: num(b.rentAmount),
+        personalE: num(b.electricityAmount),
+        societyEle,
+        societyM,
+        previousB: num(b.previousBalance),
+        depositB: tenantDeposit.get(b.tenantId) ?? 0,
+        totalBill: num(b.totalDue),
+        paid: num(b.paidAmount),
+        amountDue,
+        status,
+      };
+    }));
 
     // ---- Rooms
     addTable(wb, 'Rooms', [
@@ -160,7 +196,7 @@ export class ExcelExportService {
       { header: 'Late fee', key: 'late', width: 10, fmt: 'money' }, { header: 'Discount', key: 'disc', width: 11, fmt: 'money' }, { header: 'Previous balance', key: 'prev', width: 15, fmt: 'money' },
       { header: 'Total', key: 'total', width: 13, fmt: 'money' }, { header: 'Paid', key: 'paid', width: 12, fmt: 'money' }, { header: 'Balance', key: 'bal', width: 13, fmt: 'money' },
       { header: 'Status', key: 'status', width: 14 }, { header: 'Due date', key: 'due', width: 13, fmt: 'date' }, { header: 'Balance carried to next bill', key: 'carried', width: 18 },
-    ], bills.map((b) => {
+    ], monthBills.map((b) => {
       const total = b.totalDue.toNumber();
       const paid = b.paidAmount.toNumber();
       return {
@@ -174,14 +210,14 @@ export class ExcelExportService {
     addTable(wb, 'Bill items', [
       { header: 'Month', key: 'month', width: 11, fmt: 'month' }, { header: 'Bill no', key: 'no', width: 18 }, { header: 'Tenant', key: 'tenant', width: 26 }, { header: 'Room', key: 'room', width: 9 },
       { header: 'Type', key: 'type', width: 16 }, { header: 'Description', key: 'desc', width: 34 }, { header: 'Amount', key: 'amount', width: 13, fmt: 'money' },
-    ], bills.flatMap((b) => b.items.map((i) => ({ month: b.billingPeriod, no: b.billNumber, tenant: b.tenant.fullName, room: b.room.roomNumber, type: i.type.replace('_', ' ').toLowerCase(), desc: i.description, amount: num(i.amount) }))));
+    ], monthBills.flatMap((b) => b.items.map((i) => ({ month: b.billingPeriod, no: b.billNumber, tenant: b.tenant.fullName, room: b.room.roomNumber, type: i.type.replace('_', ' ').toLowerCase(), desc: i.description, amount: num(i.amount) }))));
 
     // ---- Payments
     addTable(wb, 'Payments', [
       { header: 'Date', key: 'date', width: 13, fmt: 'date' }, { header: 'Tenant', key: 'tenant', width: 26 }, { header: 'Room', key: 'room', width: 9 }, { header: 'For month', key: 'month', width: 11, fmt: 'month' },
       { header: 'Bill no', key: 'no', width: 18 }, { header: 'Amount', key: 'amount', width: 13, fmt: 'money' }, { header: 'Method', key: 'method', width: 14 }, { header: 'Reference', key: 'ref', width: 20 },
       { header: 'Notes', key: 'notes', width: 40 }, { header: 'Property', key: 'property', width: 20 },
-    ], payments.map((p) => ({
+    ], monthPayments.map((p) => ({
       date: p.paymentDate, tenant: p.tenant.fullName, room: p.bill.room.roomNumber, month: p.bill.billingPeriod, no: p.bill.billNumber, amount: num(p.amount), method: METHOD_LABEL[p.method] ?? p.method,
       ref: p.reference, notes: p.notes, property: p.bill.property.name,
     })), ['amount']);
@@ -191,7 +227,7 @@ export class ExcelExportService {
       { header: 'Month', key: 'month', width: 11, fmt: 'month' }, { header: 'Tenant', key: 'tenant', width: 26 }, { header: 'Room', key: 'room', width: 9 }, { header: 'Previous reading', key: 'prev', width: 16, fmt: 'rate' },
       { header: 'Current reading', key: 'cur', width: 15, fmt: 'rate' }, { header: 'Units', key: 'units', width: 10, fmt: 'rate' }, { header: 'Rate per unit', key: 'rate', width: 13, fmt: 'rate' },
       { header: 'Amount', key: 'amount', width: 13, fmt: 'money' }, { header: 'Bill no', key: 'no', width: 18 },
-    ], bills.filter((b) => b.status !== 'CANCELLED' && (b.electricityAmount.toNumber() > 0 || b.items.some((i) => i.type === 'ELECTRICITY'))).map((b) => {
+    ], monthBills.filter((b) => b.status !== 'CANCELLED' && (b.electricityAmount.toNumber() > 0 || b.items.some((i) => i.type === 'ELECTRICITY'))).map((b) => {
       const meta = (b.items.find((i) => i.type === 'ELECTRICITY')?.meta ?? {}) as Record<string, unknown>;
       const metered = metaNum(meta.currentReading) != null;
       return { month: b.billingPeriod, tenant: b.tenant.fullName, room: b.room.roomNumber, prev: metered ? metaNum(meta.previousReading) : null, cur: metered ? metaNum(meta.currentReading) : null, units: metered ? metaNum(meta.units) : null, rate: metered ? metaNum(meta.ratePerUnit) : null, amount: num(b.electricityAmount), no: b.billNumber };
@@ -226,7 +262,7 @@ export class ExcelExportService {
       m.other += b.otherChargesAmount.toNumber() + b.lateFee.toNumber() - b.discount.toNumber();
       m.billed += b.totalDue.toNumber() - b.previousBalance.toNumber();
     }
-    for (const p of payments) {
+    for (const p of monthPayments) {
       const m = slot(p.paymentDate);
       m.collected += p.amount.toNumber();
       m.payments++;
@@ -241,7 +277,7 @@ export class ExcelExportService {
     })), ['rent', 'elec', 'other', 'billed', 'collected']);
 
     const buffer = Buffer.from(await wb.xlsx.writeBuffer());
-    await this.audit.log(userId, 'export.excel', 'property', propertyId, { bills: bills.length, payments: payments.length });
+    await this.audit.log(userId, 'export.excel', 'property', propertyId, { bills: monthBills.length, payments: monthPayments.length });
     const stamp = new Date().toISOString().slice(0, 10);
     return { buffer, fileName: `RentManager-export-${stamp}.xlsx` };
   }

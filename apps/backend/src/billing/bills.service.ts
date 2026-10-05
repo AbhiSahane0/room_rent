@@ -65,7 +65,8 @@ export class BillsService {
 
   private async suggestPeriod(a: { id: string; startDate: Date; endDate: Date | null }) {
     const last = await this.prisma.bill.findFirst({ where: { assignmentId: a.id, status: { not: 'CANCELLED' } }, orderBy: { billingPeriod: 'desc' } });
-    let period = last ? addMonths(last.billingPeriod, 1) : monthStart(todayUtc());
+    // Month M is billed in month M+1, once M's meter reading is in: the first suggestion is the last completed month.
+    let period = last ? addMonths(last.billingPeriod, 1) : addMonths(monthStart(todayUtc()), -1);
     if (period < monthStart(a.startDate)) period = monthStart(a.startDate);
     if (a.endDate && period > monthStart(a.endDate)) period = monthStart(a.endDate);
     return period;
@@ -126,7 +127,7 @@ export class BillsService {
     const previousBalance = fromPaise(carry.reduce((s, b) => s + toPaise(b.balance), 0) + toPaise(openingBalance));
 
     const totals = calculateBill({ rent, electricity: electricity.amount, charges, lateFee: dto.lateFee, discount: dto.discount, previousBalance });
-    const dueDate = dto.dueDate ? parseDate(dto.dueDate, 'Due date') : new Date(Date.UTC(period.getUTCFullYear(), period.getUTCMonth(), assignment.room.property.dueDayOfMonth));
+    const dueDate = dto.dueDate ? parseDate(dto.dueDate, 'Due date') : new Date(Date.UTC(period.getUTCFullYear(), period.getUTCMonth() + 1, assignment.room.property.dueDayOfMonth)) // payable the month after the billing month;
     if (dueDate < period) throw new BadRequestException('Due date cannot be before the billing month');
 
     return { draft: { assignment, period, dueDate, rent, electricity, charges, totals, carry, openingBalance, notes: dto.notes }, suggestedPeriod, needsReading };
@@ -329,6 +330,21 @@ export class BillsService {
     });
     await this.audit.log(userId, 'bill.cancel', 'bill', id, { billNumber: bill.billNumber });
     return this.get(userId, id);
+  }
+
+  /** Permanently removes a cancelled bill. Only cancelled bills with no payments can go; nothing else points at them. */
+  async remove(userId: string, id: string) {
+    const bill = await this.ownedBill(userId, id);
+    if (bill.status !== 'CANCELLED') throw new ConflictException('Cancel the bill first, then it can be deleted');
+    const payments = await this.prisma.payment.count({ where: { billId: id } });
+    if (payments > 0) throw new ConflictException('This bill has payments recorded and cannot be deleted');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.electricityReading.deleteMany({ where: { billId: id } });
+      await tx.bill.updateMany({ where: { carriedForwardToId: id }, data: { carriedForwardToId: null } });
+      await tx.bill.delete({ where: { id } }); // its line items are removed with it
+    });
+    await this.audit.log(userId, 'bill.delete', 'bill', id, { billNumber: bill.billNumber });
+    return null;
   }
 
   // ---- recurring charges (templates used to pre-fill bills) ----

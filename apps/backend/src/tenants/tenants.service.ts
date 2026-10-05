@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { AuditService } from '../common/audit.service';
 import { parseDate } from '../common/dates';
+import { formatINR } from '../common/format';
 import { outstandingByProperties, outstandingByTenant } from '../common/outstanding';
 import { paginate, skipTake } from '../common/pagination';
 import { PrismaService } from '../common/prisma.service';
@@ -192,6 +193,9 @@ export class TenantsService {
     await this.assertOwned(userId, id);
     const active = await this.prisma.roomAssignment.findFirst({ where: { tenantId: id, status: 'ACTIVE' } });
     if (active) throw new ConflictException('Move the tenant out before deleting their record');
+    // A deleted tenant disappears from the lists, so their dues must not stay behind in the totals.
+    const owed = (await outstandingByTenant(this.prisma, [id])).get(id) ?? 0;
+    if (owed > 0) throw new ConflictException(`This tenant still owes ${formatINR(owed)}. Record the payment first, then delete the tenant.`);
     await this.prisma.tenant.update({ where: { id }, data: { deletedAt: new Date() } });
     await this.audit.log(userId, 'tenant.delete', 'tenant', id);
     return null;

@@ -35,6 +35,11 @@ export function useUpdateTenant(id: string) {
   return useMutation({ mutationFn: (body: Record<string, unknown>) => api.put<TenantDetail>(`/tenants/${id}`, body), onSuccess: invalidate });
 }
 
+export function useDeleteTenant(id: string) {
+  const invalidate = useInvalidateCore();
+  return useMutation({ mutationFn: () => api.delete<null>(`/tenants/${id}`), onSuccess: invalidate });
+}
+
 export function useAssignRoom() {
   const invalidate = useInvalidateCore();
   return useMutation({ mutationFn: (body: Record<string, unknown>) => api.post('/room-assignments', body), onSuccess: invalidate });
