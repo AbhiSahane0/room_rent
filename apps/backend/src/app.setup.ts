@@ -13,7 +13,10 @@ export function configureApp(app: NestExpressApplication) {
   const config = app.get(ConfigService<Env, true>);
   const origins = config.get('CORS_ORIGINS', { infer: true }).split(',').map((s) => s.trim()).filter(Boolean);
 
-  app.use(helmet());
+  // Swagger UI needs inline scripts/styles; the API itself keeps the strict default policy.
+  const strict = helmet();
+  const docs = helmet({ contentSecurityPolicy: false });
+  app.use((req: { path: string }, res: unknown, next: () => void) => (/^\/docs(-json)?(\/|$)/.test(req.path) ? docs : strict)(req as never, res as never, next));
   // Everything this API returns is private owner data (bills, tenants, document links): never cache it.
   app.use((_req: unknown, res: { setHeader(k: string, v: string): void }, next: () => void) => {
     res.setHeader('Cache-Control', 'private, no-store');

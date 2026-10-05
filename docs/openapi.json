@@ -1,0 +1,2927 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "summary": "Liveness check",
+        "tags": [
+          "Health"
+        ],
+        "description": "Returns 200 whenever the process is up. No database call, no auth, never rate limited.",
+        "security": []
+      }
+    },
+    "/": {
+      "get": {
+        "operationId": "HealthController_root",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "summary": "Liveness check (root)",
+        "tags": [
+          "Health"
+        ],
+        "description": "Same as `/health`.",
+        "security": []
+      }
+    },
+    "/health/db": {
+      "get": {
+        "operationId": "HealthController_db",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "summary": "Database check",
+        "tags": [
+          "Health"
+        ],
+        "description": "Runs `SELECT 1`. Returns 503 if the database is unreachable.",
+        "security": []
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Log in",
+        "description": "Username + password → access token (short lived) and refresh token. Limited to 8 requests/minute per IP.",
+        "security": []
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Refresh tokens",
+        "description": "Exchanges a refresh token for a new pair; the old refresh token is revoked (rotation). 30/minute.",
+        "security": []
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "summary": "Log out",
+        "tags": [
+          "Auth"
+        ],
+        "description": "Revokes the given refresh token. Always succeeds.",
+        "security": []
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Current user"
+      }
+    },
+    "/auth/credentials": {
+      "patch": {
+        "operationId": "AuthController_updateCredentials",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCredentialsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Change username / password",
+        "description": "Requires the current password."
+      }
+    },
+    "/dashboard": {
+      "get": {
+        "operationId": "DashboardController_overview",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "description": "Limit to one property"
+          },
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Home overview",
+        "description": "Everything the Home screen shows in one call: collection, trend, dues (current and former tenants), rent roll, vacancy, pending payments, recent payments, tenants still to bill. Optional `propertyId` scopes to one property."
+      }
+    },
+    "/reports/collection": {
+      "get": {
+        "operationId": "ReportsController_collection",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Collection report",
+        "description": "Billed vs collected for a month, split by payment method, with a 6-month trend."
+      }
+    },
+    "/reports/outstanding": {
+      "get": {
+        "operationId": "ReportsController_outstanding",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Outstanding dues",
+        "description": "Who owes what, oldest first, current and former tenants."
+      }
+    },
+    "/reports/occupancy": {
+      "get": {
+        "operationId": "ReportsController_occupancy",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Occupancy report"
+      }
+    },
+    "/properties": {
+      "get": {
+        "operationId": "PropertiesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Properties"
+        ],
+        "summary": "List properties"
+      },
+      "post": {
+        "operationId": "PropertiesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePropertyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Properties"
+        ],
+        "summary": "Create a property"
+      }
+    },
+    "/properties/{id}": {
+      "get": {
+        "operationId": "PropertiesController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Properties"
+        ],
+        "summary": "Get a property"
+      },
+      "put": {
+        "operationId": "PropertiesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePropertyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Properties"
+        ],
+        "summary": "Update a property",
+        "description": "Includes bill settings: due day, UPI id, default rates."
+      }
+    },
+    "/rooms": {
+      "get": {
+        "operationId": "RoomsController_list",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OCCUPIED",
+                "VACANT",
+                "MAINTENANCE"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "List rooms",
+        "description": "Status is OCCUPIED exactly when the room has an ACTIVE assignment."
+      },
+      "post": {
+        "operationId": "RoomsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoomDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Create a room"
+      }
+    },
+    "/rooms/{id}": {
+      "get": {
+        "operationId": "RoomsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Get a room"
+      },
+      "put": {
+        "operationId": "RoomsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoomDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Update a room"
+      }
+    },
+    "/rooms/{id}/history": {
+      "get": {
+        "operationId": "RoomsController_history",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Rooms"
+        ],
+        "summary": "Room stay history",
+        "description": "Every tenant who has lived in the room, with their stay dates."
+      }
+    },
+    "/room-assignments": {
+      "post": {
+        "operationId": "AssignmentsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAssignmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Move a tenant into a room",
+        "description": "Creates an ACTIVE stay and marks the room occupied."
+      }
+    },
+    "/room-assignments/{id}/move-out": {
+      "post": {
+        "operationId": "AssignmentsController_moveOut",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveOutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Move a tenant out",
+        "description": "Ends the stay and frees the room. Unpaid dues stay on the tenant and can be collected later."
+      }
+    },
+    "/room-assignments/{id}/rent": {
+      "post": {
+        "operationId": "AssignmentsController_changeRent",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Change rent",
+        "description": "Takes effect from the given month; earlier bills are untouched."
+      }
+    },
+    "/room-assignments/{id}/electricity": {
+      "post": {
+        "operationId": "AssignmentsController_changeElectricity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeElectricityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Change electricity rate",
+        "description": "Per-unit rate for this stay. `applyToRoom` also makes it the room default."
+      }
+    },
+    "/room-assignments/{id}/rent-history": {
+      "get": {
+        "operationId": "AssignmentsController_rentHistory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Rent history"
+      }
+    },
+    "/tenants": {
+      "get": {
+        "operationId": "TenantsController_list",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "MOVED_OUT"
+              ]
+            }
+          },
+          {
+            "name": "dues",
+            "required": false,
+            "in": "query",
+            "description": "'true': only tenants who owe money (including people who have moved out).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "List tenants",
+        "description": "Paginated. Filters: `status`, `search`, `dues=true` (owes money, including tenants who have left)."
+      },
+      "post": {
+        "operationId": "TenantsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Create a tenant"
+      }
+    },
+    "/tenants/{id}": {
+      "get": {
+        "operationId": "TenantsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Get a tenant",
+        "description": "Includes current stay, balance and bills."
+      },
+      "put": {
+        "operationId": "TenantsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Update a tenant"
+      },
+      "delete": {
+        "operationId": "TenantsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Delete a tenant (soft)",
+        "description": "Blocked with 409 while the tenant still owes money or lives in a room."
+      }
+    },
+    "/tenants/{id}/electricity": {
+      "get": {
+        "operationId": "TenantsController_electricity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Electricity history",
+        "description": "Per-bill readings, units, rate and amount, plus a summary (average, highest, latest rate)."
+      }
+    },
+    "/tenants/{id}/assignments": {
+      "get": {
+        "operationId": "TenantsController_assignmentsFor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Tenant stays",
+        "description": "All room assignments of the tenant, past and present."
+      }
+    },
+    "/files/local": {
+      "get": {
+        "operationId": "LocalFilesController_serve",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "exp",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sig",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Local file download (development only)",
+        "description": "Serves uploaded files when R2 is not configured. Requires a signed `token` query parameter.",
+        "security": []
+      }
+    },
+    "/tenants/{tenantId}/documents": {
+      "post": {
+        "operationId": "DocumentsController_upload",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadDocumentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Upload a document",
+        "description": "multipart/form-data, field `file`. Stored privately in Cloudflare R2. 30/minute."
+      },
+      "get": {
+        "operationId": "DocumentsController_list",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Documents"
+        ],
+        "summary": "List a tenant’s documents"
+      }
+    },
+    "/documents/{id}/url": {
+      "get": {
+        "operationId": "DocumentsController_url",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "summary": "Get a temporary download link",
+        "tags": [
+          "Documents"
+        ],
+        "description": "Pre-signed URL, valid for a few minutes."
+      }
+    },
+    "/documents/{id}": {
+      "delete": {
+        "operationId": "DocumentsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Delete a document"
+      }
+    },
+    "/bills": {
+      "get": {
+        "operationId": "BillsController_list",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "GENERATED",
+                "PARTIALLY_PAID",
+                "PAID",
+                "DRAFT",
+                "OVERDUE",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "month",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Bills"
+        ],
+        "summary": "List bills",
+        "description": "Paginated; filter by month, status, tenant, property."
+      },
+      "post": {
+        "operationId": "BillsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBillDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Bills"
+        ],
+        "summary": "Generate a bill",
+        "description": "One live bill per stay per month. Bills are immutable once created; the previous unpaid balance is carried forward and marked on the old bill."
+      }
+    },
+    "/bills/preview": {
+      "post": {
+        "operationId": "BillsController_preview",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewBillDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "summary": "Preview a bill",
+        "tags": [
+          "Bills"
+        ],
+        "description": "Computes lines, carried-forward balance and total without saving anything."
+      }
+    },
+    "/bills/{id}": {
+      "get": {
+        "operationId": "BillsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Bills"
+        ],
+        "summary": "Get a bill",
+        "description": "Status is computed at read time (a past-due unpaid bill reads OVERDUE)."
+      },
+      "delete": {
+        "operationId": "BillsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Bills"
+        ],
+        "summary": "Delete a bill",
+        "description": "Only allowed when nothing has been paid against it."
+      }
+    },
+    "/bills/{id}/pdf": {
+      "get": {
+        "operationId": "BillsController_pdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "download",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "`1` to download instead of view inline"
+          },
+          {
+            "name": "format",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "premium | statement | invoice"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "summary": "Bill PDF",
+        "tags": [
+          "Bills"
+        ],
+        "description": "Always one page. `format`: `premium` (default, with UPI QR), `statement`, `invoice`. `download=1` sends it as an attachment. 40/minute."
+      }
+    },
+    "/bills/{id}/cancel": {
+      "post": {
+        "operationId": "BillsController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelBillDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Bills"
+        ],
+        "summary": "Cancel a bill",
+        "description": "Cancelled bills are kept for audit; the balance they carried returns to the previous bill."
+      }
+    },
+    "/room-assignments/{id}/charges": {
+      "get": {
+        "operationId": "BillsController_charges",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "List recurring charges"
+      },
+      "post": {
+        "operationId": "BillsController_addCharge",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecurringChargeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Add a recurring charge"
+      }
+    },
+    "/room-assignments/{id}/charges/{chargeId}": {
+      "delete": {
+        "operationId": "BillsController_removeCharge",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "chargeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Assignments"
+        ],
+        "summary": "Remove a recurring charge"
+      }
+    },
+    "/bills/{id}/payments": {
+      "post": {
+        "operationId": "PaymentsController_record",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordPaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Record a payment on a bill",
+        "description": "Payments are append-only. Cannot exceed the balance due."
+      }
+    },
+    "/payments": {
+      "post": {
+        "operationId": "PaymentsController_recordForTenant",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordTenantPaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Record a payment for a tenant",
+        "description": "Applied to the tenant’s open bill."
+      },
+      "get": {
+        "operationId": "PaymentsController_list",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenantId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "method",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CASH",
+                "UPI",
+                "BANK_TRANSFER",
+                "CARD",
+                "OTHER"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Payments"
+        ],
+        "summary": "List payments",
+        "description": "Paginated; filter by date range, method, tenant."
+      }
+    },
+    "/tenants/{id}/open-bill": {
+      "get": {
+        "operationId": "PaymentsController_openBill",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Tenant’s open bill",
+        "description": "The bill a payment would be applied to, or null."
+      }
+    },
+    "/exports/excel": {
+      "get": {
+        "operationId": "ExportsController_excel",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The file",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Missing or expired token"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        },
+        "summary": "Export everything to Excel",
+        "tags": [
+          "Exports"
+        ],
+        "description": "One `.xlsx` workbook: Summary, Tenant Ledger, Rooms, Tenants, Stays, Bills, Bill items, Payments, Electricity, Outstanding, Monthly. 10/minute."
+      }
+    }
+  },
+  "info": {
+    "title": "Rent Manager API",
+    "description": "REST API behind the Rent Manager web and mobile apps.\n\n## Authentication\n`POST /auth/login` returns `accessToken` + `refreshToken`. Send `Authorization: Bearer <accessToken>` on every other call. When it expires (401) call `POST /auth/refresh`; refresh tokens rotate, so store the new one. Use the **Authorize** button above to try endpoints here.\n\n## Response envelope\nSuccess: `{ \"success\": true, \"data\": …, \"message\"?: string }`\nError: `{ \"success\": false, \"message\": string, \"errors\"?: [{ \"field\": string, \"message\": string }] }`\n(PDF and Excel endpoints return the raw file.) Money values are decimal strings/numbers in INR; dates are ISO 8601; billing months are `YYYY-MM`.\n\n## Lists\nList endpoints take `page` and `limit` and return `{ items, total, page, limit }` inside `data`.\n\n## Money rules\nBills are immutable, payments are append-only, unpaid balance carries forward to the next bill, and a tenant who moves out keeps their dues until paid.\n\n## Rate limits\nDefault 120 requests/minute per IP. Login 8, refresh 30, PDF 40, Excel export 10, document upload 30. Exceeding returns 429.\n\n## Caching\nGET responses may be served from a 20-second server cache; any write clears it. All responses are `Cache-Control: private, no-store`.",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Uptime probes for Render / load balancers."
+    },
+    {
+      "name": "Auth",
+      "description": "Login and token management."
+    },
+    {
+      "name": "Dashboard",
+      "description": "Aggregated numbers for the Home screen."
+    },
+    {
+      "name": "Properties",
+      "description": "Buildings and their billing settings."
+    },
+    {
+      "name": "Rooms",
+      "description": "Rooms, shops and their status."
+    },
+    {
+      "name": "Tenants",
+      "description": "People who rent (or rented) a room."
+    },
+    {
+      "name": "Assignments",
+      "description": "A tenant’s stay in a room: move in/out, rent, electricity, recurring charges."
+    },
+    {
+      "name": "Bills",
+      "description": "Monthly bills. Immutable once generated."
+    },
+    {
+      "name": "Payments",
+      "description": "Append-only payment ledger."
+    },
+    {
+      "name": "Documents",
+      "description": "Tenant KYC and agreement files."
+    },
+    {
+      "name": "Reports",
+      "description": "Collection, dues and occupancy."
+    },
+    {
+      "name": "Exports",
+      "description": "Data exports."
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
+      },
+      "RefreshDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "LogoutDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateCredentialsDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9._-]{3,32}$"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "currentPassword"
+        ]
+      },
+      "CreatePropertyDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "address": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "state": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "pincode": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "name",
+          "address",
+          "city",
+          "state",
+          "pincode"
+        ]
+      },
+      "UpdatePropertyDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "address": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "state": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "pincode": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "billPrefix": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9]{1,8}$"
+          },
+          "dueDayOfMonth": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 28
+          },
+          "defaultRatePerUnit": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "billFooterNote": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "upiId": {
+            "type": "string",
+            "description": "UPI ID for the \"scan to pay\" QR on bills (name@bank). Send an empty string to remove it.",
+            "pattern": "^$|^[A-Za-z0-9._-]{2,64}@[A-Za-z][A-Za-z0-9.-]{1,32}$"
+          }
+        }
+      },
+      "CreateRoomDto": {
+        "type": "object",
+        "properties": {
+          "propertyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "roomNumber": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "floor": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "defaultRent": {
+            "type": "number",
+            "minimum": 0
+          },
+          "electricityMode": {
+            "type": "string",
+            "enum": [
+              "METER",
+              "FIXED",
+              "NONE"
+            ]
+          },
+          "ratePerUnit": {
+            "type": "number",
+            "minimum": 0
+          },
+          "fixedElectricity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "propertyId",
+          "roomNumber",
+          "defaultRent"
+        ]
+      },
+      "UpdateRoomDto": {
+        "type": "object",
+        "properties": {
+          "roomNumber": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "floor": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "defaultRent": {
+            "type": "number",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "description": "Only VACANT <-> MAINTENANCE; OCCUPIED is controlled by room assignments.",
+            "enum": [
+              "OCCUPIED",
+              "VACANT",
+              "MAINTENANCE"
+            ]
+          },
+          "electricityMode": {
+            "type": "string",
+            "enum": [
+              "METER",
+              "FIXED",
+              "NONE"
+            ]
+          },
+          "ratePerUnit": {
+            "type": "number",
+            "minimum": 0
+          },
+          "fixedElectricity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      },
+      "CreateAssignmentDto": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "roomId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startDate": {
+            "type": "string"
+          },
+          "agreedRent": {
+            "type": "number",
+            "minimum": 0
+          },
+          "securityDeposit": {
+            "type": "number",
+            "minimum": 0
+          },
+          "electricityMode": {
+            "type": "string",
+            "enum": [
+              "METER",
+              "FIXED",
+              "NONE"
+            ]
+          },
+          "ratePerUnit": {
+            "type": "number",
+            "minimum": 0
+          },
+          "fixedElectricity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "initialMeterReading": {
+            "type": "number",
+            "minimum": 0
+          },
+          "openingBalance": {
+            "type": "number",
+            "description": "Amount already owed before this system was used. It is added to the tenant's first bill.",
+            "minimum": 0
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "tenantId",
+          "roomId",
+          "startDate",
+          "agreedRent"
+        ]
+      },
+      "MoveOutDto": {
+        "type": "object",
+        "properties": {
+          "moveOutDate": {
+            "type": "string"
+          },
+          "finalMeterReading": {
+            "type": "number",
+            "minimum": 0
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "moveOutDate"
+        ]
+      },
+      "ChangeRentDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "description": "Rent applies from the month containing this date."
+          }
+        },
+        "required": [
+          "amount",
+          "effectiveFrom"
+        ]
+      },
+      "ChangeElectricityDto": {
+        "type": "object",
+        "properties": {
+          "electricityMode": {
+            "type": "string",
+            "enum": [
+              "METER",
+              "FIXED",
+              "NONE"
+            ]
+          },
+          "ratePerUnit": {
+            "type": "number",
+            "minimum": 0
+          },
+          "fixedElectricity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "applyToRoom": {
+            "type": "boolean",
+            "description": "Also make this the default rate of the room (for the next tenant)."
+          }
+        }
+      },
+      "AssignmentTermsDto": {
+        "type": "object",
+        "properties": {
+          "roomId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startDate": {
+            "type": "string"
+          },
+          "agreedRent": {
+            "type": "number",
+            "minimum": 0
+          },
+          "securityDeposit": {
+            "type": "number",
+            "minimum": 0
+          },
+          "electricityMode": {
+            "type": "string",
+            "enum": [
+              "METER",
+              "FIXED",
+              "NONE"
+            ]
+          },
+          "ratePerUnit": {
+            "type": "number",
+            "minimum": 0
+          },
+          "fixedElectricity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "initialMeterReading": {
+            "type": "number",
+            "minimum": 0
+          },
+          "openingBalance": {
+            "type": "number",
+            "description": "Amount already owed before this system was used. It is added to the tenant's first bill.",
+            "minimum": 0
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "roomId",
+          "startDate",
+          "agreedRent"
+        ]
+      },
+      "CreateTenantDto": {
+        "type": "object",
+        "properties": {
+          "propertyId": {
+            "type": "string",
+            "description": "Required when no room assignment is supplied; otherwise derived from the room.",
+            "format": "uuid"
+          },
+          "assignment": {
+            "$ref": "#/components/schemas/AssignmentTermsDto"
+          },
+          "fullName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "phone": {
+            "type": "string"
+          },
+          "alternatePhone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "permanentAddress": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "currentAddress": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "emergencyContact": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "emergencyPhone": {
+            "type": "string"
+          },
+          "occupation": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "joiningDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "fullName",
+          "phone",
+          "joiningDate"
+        ]
+      },
+      "UpdateTenantDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "phone": {
+            "type": "string"
+          },
+          "alternatePhone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "permanentAddress": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "currentAddress": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "emergencyContact": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "emergencyPhone": {
+            "type": "string"
+          },
+          "occupation": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "joiningDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      },
+      "UploadDocumentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ElectricityDto": {
+        "type": "object",
+        "properties": {
+          "currentReading": {
+            "type": "number",
+            "minimum": 0
+          },
+          "previousReading": {
+            "type": "number",
+            "description": "Only needed when the meter was replaced or the stored previous reading is wrong.",
+            "minimum": 0
+          },
+          "ratePerUnit": {
+            "type": "number",
+            "minimum": 0
+          },
+          "overrideAmount": {
+            "type": "number",
+            "description": "Manual amount replacing the calculation (e.g. faulty meter).",
+            "minimum": 0
+          }
+        }
+      },
+      "BillChargeDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "MAINTENANCE",
+              "OTHER",
+              "LATE_FEE",
+              "WATER",
+              "CLEANING",
+              "INTERNET",
+              "PARKING",
+              "REPAIR"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "type",
+          "amount"
+        ]
+      },
+      "PreviewBillDto": {
+        "type": "object",
+        "properties": {
+          "assignmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "billingPeriod": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])(-01)?$"
+          },
+          "dueDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "electricity": {
+            "$ref": "#/components/schemas/ElectricityDto"
+          },
+          "charges": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BillChargeDto"
+            }
+          },
+          "lateFee": {
+            "type": "number",
+            "minimum": 0
+          },
+          "discount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      },
+      "CreateBillDto": {
+        "type": "object",
+        "properties": {
+          "assignmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "billingPeriod": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])(-01)?$"
+          },
+          "dueDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "electricity": {
+            "$ref": "#/components/schemas/ElectricityDto"
+          },
+          "charges": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BillChargeDto"
+            }
+          },
+          "lateFee": {
+            "type": "number",
+            "minimum": 0
+          },
+          "discount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      },
+      "CancelBillDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
+      "RecurringChargeDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "MAINTENANCE",
+              "OTHER",
+              "LATE_FEE",
+              "WATER",
+              "CLEANING",
+              "INTERNET",
+              "PARKING",
+              "REPAIR"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "amount"
+        ]
+      },
+      "RecordPaymentDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "paymentDate": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "CASH",
+              "UPI",
+              "BANK_TRANSFER",
+              "CARD",
+              "OTHER"
+            ]
+          },
+          "reference": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "amount",
+          "paymentDate",
+          "method"
+        ]
+      },
+      "RecordTenantPaymentDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 1
+          },
+          "paymentDate": {
+            "type": "string"
+          },
+          "method": {
+            "enum": [
+              "CASH",
+              "UPI",
+              "BANK_TRANSFER",
+              "CARD",
+              "OTHER"
+            ],
+            "type": "string"
+          },
+          "reference": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "amount",
+          "paymentDate",
+          "method",
+          "tenantId"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearer": []
+    }
+  ]
+}

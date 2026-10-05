@@ -227,3 +227,9 @@ Camera, document picker, sharing and PDF viewing use native modules, so use an E
 - The native share sheet, camera capture and Android PDF viewer are implemented with Expo's native modules and compile into the Android bundle, but they could only be exercised through the browser preview in the authoring environment. Do one pass on a real phone before launch (camera permission prompt, "Take Photo", Share to WhatsApp, View PDF).
 - The web app was exercised in Chromium with an iPhone profile, not in real Safari or on a real iPhone. Before launch, install it on the client's iPhone and try login, photo capture, View PDF, Share and Add to Home Screen.
 - Supabase and R2 were verified against a local PostgreSQL and the R2 request signing logic, not against live Supabase/R2 accounts (no keys were available).
+
+## API documentation
+
+Interactive Swagger UI: `http://localhost:3000/docs` (raw spec at `/docs-json`; set `API_DOCS=off` to disable in production).
+A committed copy is in [`docs/openapi.json`](docs/openapi.json) — import it into Postman/Insomnia, or regenerate it after changing endpoints with `npm run docs:generate -w @rental/backend`.
+Endpoint descriptions live in `apps/backend/src/docs/openapi.ts`.
