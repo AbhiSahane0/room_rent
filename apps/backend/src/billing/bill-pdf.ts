@@ -1,6 +1,6 @@
 import PDFDocument from 'pdfkit';
 import * as path from 'path';
-import { formatDate, formatINR } from '../common/format';
+import { formatDate, formatDateLocal, formatINR } from '../common/format';
 import { monthLabel } from './bills.service';
 
 const FONT_DIR = path.resolve(__dirname, '../../assets/fonts');
@@ -90,7 +90,7 @@ export function renderBillPdf(bill: PdfBill): Promise<Buffer> {
     const labelX = left + width * 0.55;
     const rows: [string, string, string?][] = [
       ['Billing period', monthLabel(bill.billingPeriod)],
-      ['Invoice date', formatDate(bill.createdAt)],
+      ['Invoice date', formatDateLocal(bill.createdAt)],
       ['Due date', bill.overdue ? `${formatDate(bill.dueDate)} (overdue)` : formatDate(bill.dueDate), bill.overdue ? C.danger : undefined],
     ];
     rows.forEach(([k, v, color], i) => {

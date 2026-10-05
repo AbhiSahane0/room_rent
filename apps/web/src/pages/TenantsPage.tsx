@@ -7,6 +7,7 @@ import { useDebounced } from '@/hooks/useDebounced';
 import { useProperty } from '@/features/properties/PropertyProvider';
 import { useTenants } from '@/features/tenants/api';
 import { TenantCard } from '@/features/tenants/TenantCard';
+import { ExportButton } from '@/features/exports/ExportButton';
 import type { TenantStatus } from '@rental/shared';
 
 const FILTERS: { label: string; status?: TenantStatus; dues?: 'true' }[] = [
@@ -36,7 +37,7 @@ export function TenantsPage() {
   );
 
   return (
-    <Page wide title="Tenants" subtitle={<PropertySwitcher />} actions={current ? <LinkButton to="/tenants/new" icon={Plus} size="sm" full={false}>Add Tenant</LinkButton> : undefined}>
+    <Page wide title="Tenants" subtitle={<PropertySwitcher />} actions={current ? <div className="flex items-center gap-2"><ExportButton propertyId={current.id} variant="secondary" /><LinkButton to="/tenants/new" icon={Plus} size="sm" full={false}>Add Tenant</LinkButton></div> : undefined}>
       <div className="mb-4 space-y-3">
         <div className="max-w-md"><Input icon={Search} placeholder="Search name, phone or room..." value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <ChipRow>{FILTERS.map((f) => <Chip key={f.label} label={f.label} selected={filter === f} onClick={() => setFilter(f)} />)}</ChipRow>

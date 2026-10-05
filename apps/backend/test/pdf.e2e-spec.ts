@@ -164,7 +164,7 @@ describe('Bill PDF', () => {
       const lines = breakdownLines(bill());
       expect(lines.map((l) => [l.label, l.detail, l.amount])).toEqual([
         ['Monthly rent', 'For September 2026', 6000],
-        ['Electricity', 'Meter 4304 to 4380  ·  76 units × ₹12', 912],
+        ['Electricity', 'September 2026 usage  ·  Meter 4304 to 4380  ·  76 units × ₹12', 912],
         ['Society Electricity', 'Shared by all tenants', 200],
         ['Previous balance', 'Unpaid from INV-202608-0001', 1000],
       ]);

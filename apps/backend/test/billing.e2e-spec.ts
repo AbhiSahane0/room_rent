@@ -60,7 +60,7 @@ describe('Billing (e2e)', () => {
     expect(d.rent).toBe(8000);
     expect(d.electricity).toMatchObject({ previousReading: 1200, currentReading: 1350, units: 150, ratePerUnit: 8, amount: 1200 });
     expect(d.totals).toMatchObject({ rent: 8000, electricity: 1200, otherCharges: 700, subtotal: 9900, previousBalance: 0, totalDue: 9900 });
-    expect(d.dueDate.slice(0, 10)).toBe('2026-09-10');
+    expect(d.dueDate.slice(0, 10)).toBe('2026-10-10'); // September's bill is payable on 10 October
     expect(d.tenant.fullName).toBe('Rahul Sharma');
   });
 
@@ -89,7 +89,7 @@ describe('Billing (e2e)', () => {
   });
 
   it('generates the September bill; items always add up to the total', async () => {
-    const res = await owner.post('/bills', septemberBody()).expect(201);
+    const res = await owner.post('/bills', septemberBody({ dueDate: '2026-09-10' })).expect(201); // explicit date so the bill is already overdue
     const b = res.body.data;
     sepBillId = b.id;
     expect(b).toMatchObject({ billNumber: 'SUN-202609-0001', status: 'OVERDUE', storedStatus: 'GENERATED', totalDue: 9900, paidAmount: 0, balance: 9900 });

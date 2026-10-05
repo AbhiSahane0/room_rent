@@ -1,12 +1,13 @@
-import { DoorOpen, LogOut, MessageCircle, Pencil, Phone, TrendingUp, UserPlus } from 'lucide-react';
+import { DoorOpen, LogOut, MessageCircle, Pencil, Phone, Trash2, TrendingUp, UserPlus } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { Avatar, Badge, Card, Chip, ChipRow, DetailRow, ErrorState, Icon, LinkButton, SectionHeader, SkeletonList } from '@/components/ui';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { friendlyError } from '@/api/client';
+import { Avatar, Badge, Card, Chip, ChipRow, ConfirmDialog, DetailRow, Notice, ErrorState, Icon, LinkButton, SectionHeader, SkeletonList } from '@/components/ui';
 import { Page } from '@/components/layout/Page';
 import { BillsSection } from '@/features/bills/BillsSection';
 import { DocumentsSection } from '@/features/documents/DocumentsSection';
 import { PaymentsSection } from '@/features/payments/PaymentsSection';
-import { useTenant } from '@/features/tenants/api';
+import { useDeleteTenant, useTenant } from '@/features/tenants/api';
 import { ChangeRentModal } from '@/features/tenants/ChangeRentModal';
 import { ElectricityHistory } from '@/features/tenants/ElectricityHistory';
 import { ElectricityModal } from '@/features/tenants/ElectricityModal';
@@ -22,6 +23,10 @@ export function TenantProfilePage() {
   const [section, setSection] = useState<Section>('Overview');
   const [rentOpen, setRentOpen] = useState(false);
   const [elecOpen, setElecOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const del = useDeleteTenant(id ?? '');
 
   if (isLoading) return <Page title="Tenant" back="/tenants"><SkeletonList count={3} /></Page>;
   if (isError || !t) return <Page title="Tenant" back="/tenants"><ErrorState error={error} onRetry={() => void refetch()} /></Page>;
@@ -70,7 +75,13 @@ export function TenantProfilePage() {
                 <button type="button" onClick={() => setRentOpen(true)} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-line-strong font-semibold hover:bg-surface-muted"><Icon icon={TrendingUp} tone="ink" />Change Rent</button>
                 <LinkButton to={`/tenants/${t.id}/move-out`} icon={LogOut} variant="danger">Move Out</LinkButton>
               </div>
-            ) : <LinkButton to={`/tenants/${t.id}/assign`} icon={UserPlus}>Assign Room</LinkButton>}
+            ) : (
+              <>
+                <LinkButton to={`/tenants/${t.id}/assign`} icon={UserPlus}>Assign Room</LinkButton>
+                <button type="button" onClick={() => { setDeleteError(null); setDeleting(true); }} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-danger font-semibold text-danger hover:bg-surface-muted"><Icon icon={Trash2} tone="danger" />Delete Tenant</button>
+                {deleteError ? <Notice tone="danger">{deleteError}</Notice> : null}
+              </>
+            )}
           </div>
           <SectionHeader title="Contact" />
           <Card>
@@ -114,6 +125,10 @@ export function TenantProfilePage() {
         </div>
       ) : null}
 
+      <ConfirmDialog open={deleting} title={`Delete ${t.fullName}?`} confirmLabel="Delete tenant" destructive loading={del.isPending}
+        message="The tenant is removed from your lists. Their past bills and payments stay in your records and reports. This cannot be undone from the app."
+        onConfirm={async () => { try { await del.mutateAsync(); setDeleting(false); navigate('/tenants', { replace: true }); } catch (e) { setDeleting(false); setDeleteError(friendlyError(e)); } }}
+        onCancel={() => setDeleting(false)} />
       {a && elecOpen ? <ElectricityModal open onClose={() => setElecOpen(false)} assignmentId={a.id} mode={a.electricityMode} ratePerUnit={a.ratePerUnit} fixedElectricity={a.fixedElectricity} /> : null}
       {a && rentOpen ? <ChangeRentModal open onClose={() => setRentOpen(false)} assignmentId={a.id} currentRent={a.agreedRent} startDate={a.startDate} /> : null}
     </Page>
