@@ -151,4 +151,19 @@ describe('Tenants, room assignment & move-out (e2e)', () => {
     expect(await prisma.roomAssignment.count({ where: { tenantId: rahul } })).toBe(1);
     expect((await prisma.tenant.findUniqueOrThrow({ where: { id: rahul } })).deletedAt).not.toBeNull();
   });
+
+  it('keeps a room\'s status in step with its tenant at the database level', async () => {
+    const room = (await owner.post('/rooms', { propertyId, roomNumber: 'SYNC-1', defaultRent: 3000, electricityMode: 'NONE' })).body.data;
+    const t = (await owner.post('/tenants', { fullName: 'Sync Tenant', phone: '9000011111', joiningDate: '2026-04-01', assignment: { roomId: room.id, startDate: '2026-04-01', agreedRent: 3000 } })).body.data;
+    expect((await prisma.room.findUniqueOrThrow({ where: { id: room.id } })).status).toBe('OCCUPIED');
+    // A room with a tenant cannot be marked vacant or under maintenance behind the app's back.
+    await expect(prisma.room.update({ where: { id: room.id }, data: { status: 'VACANT' } })).rejects.toThrow(/tenant living in it/);
+    await expect(prisma.room.update({ where: { id: room.id }, data: { status: 'MAINTENANCE' } })).rejects.toThrow(/tenant living in it/);
+    // Closing the stay by any route frees the room.
+    await prisma.roomAssignment.update({ where: { id: t.currentAssignment.id }, data: { status: 'CLOSED', endDate: new Date('2026-05-31') } });
+    expect((await prisma.room.findUniqueOrThrow({ where: { id: room.id } })).status).toBe('VACANT');
+    // And a stay created behind the app's back occupies it.
+    await prisma.roomAssignment.update({ where: { id: t.currentAssignment.id }, data: { status: 'ACTIVE', endDate: null } });
+    expect((await prisma.room.findUniqueOrThrow({ where: { id: room.id } })).status).toBe('OCCUPIED');
+  });
 });
