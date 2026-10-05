@@ -11,17 +11,28 @@ export class DashboardService {
 
   /** Everything the Home screen shows, in one request. Numbers come from the same code as the reports. */
   async overview(user: AuthUser, q: ReportQuery) {
-    const properties = await this.prisma.property.findMany({
-      where: { ownerId: user.userId, isActive: true },
-      select: { id: true, name: true, city: true, state: true },
-      orderBy: { createdAt: 'asc' },
-    });
+    const listProperties = () =>
+      this.prisma.property.findMany({ where: { ownerId: user.userId, isActive: true }, select: { id: true, name: true, city: true, state: true }, orderBy: { createdAt: 'asc' } });
+    // Everything for one property, started in parallel (one network round trip in total). `ids` are only trusted once the property list confirms them.
+    const load = (ids: string[]) => {
+      const outstanding = this.reports.outstandingFor(ids);
+      return Promise.all([this.reports.collectionFor(ids, q.month, outstanding.then((o) => o.total)), this.reports.occupancyFor(ids), outstanding, this.reports.extrasFor(ids)]);
+    };
+
+    // The client normally names the property, so its data is fetched at the same time as the property list instead of after it.
+    let properties: Awaited<ReturnType<typeof listProperties>>;
+    let loaded: Awaited<ReturnType<typeof load>> | null = null;
+    if (q.propertyId) {
+      const [list, data] = await Promise.all([listProperties(), load([q.propertyId])]);
+      properties = list;
+      if (list.some((p) => p.id === q.propertyId)) loaded = data;
+    } else {
+      properties = await listProperties();
+    }
     const selected = properties.find((p) => p.id === q.propertyId) ?? properties[0] ?? null;
     if (!selected) return { username: user.username, properties, property: null, collection: null, occupancy: null, pendingPayments: [] };
-
-    // `selected` comes from the user's own property list above, so the ownership re-check inside each report is skipped.
-    const ids = [selected.id];
-    const [collection, occupancy, outstanding, extras] = await Promise.all([this.reports.collectionFor(ids, q.month), this.reports.occupancyFor(ids), this.reports.outstandingFor(ids), this.reports.extrasFor(ids)]);
+    // A remembered property that no longer exists falls back to the first one.
+    const [collection, occupancy, outstanding, extras] = loaded ?? (await load([selected.id]));
     const { month, monthLabel, expected, collected, paymentCount, pending, collectionRate } = collection;
     return {
       username: user.username,

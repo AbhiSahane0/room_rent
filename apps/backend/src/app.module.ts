@@ -1,11 +1,11 @@
-import { Controller, Get, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { AuditModule } from './common/audit.service';
-import { Public } from './common/decorators';
+import { HealthController } from './health/health.controller';
 import { validateEnv } from './common/env';
 import { PrismaModule } from './common/prisma.service';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -19,15 +19,6 @@ import { BillingModule } from './billing/billing.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ReportsModule } from './reports/reports.module';
 import { ExportsModule } from './exports/exports.module';
-
-@Controller('health')
-class HealthController {
-  @Public()
-  @Get()
-  health() {
-    return { status: 'ok' };
-  }
-}
 
 @Module({
   imports: [

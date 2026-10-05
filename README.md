@@ -57,6 +57,13 @@ API URL from the app: Android emulator `http://10.0.2.2:3000`, iOS simulator `ht
 Without R2 keys, development falls back to storing documents on local disk (`apps/backend/.storage`, git-ignored) behind the
 same signed, expiring links. **Production refuses to start without R2 configured.**
 
+### Health check and speed
+- `GET /health` returns **200** `{"success":true,"data":{"status":"ok","uptimeSeconds":...,"time":"..."}}` with no login and no database call (also `GET /`). `GET /health/db` returns 200 only if the database answers, otherwise 503. Never rate limited; Render's health check uses `/health`.
+- Most of the wait on screens is network distance to the database (each query is a round trip). The API therefore does as much as possible in one go: every screen's data is fetched in parallel (or in a single SQL query for the dashboard and collection report),
+  connections to the database are opened at startup and kept warm (`DB_KEEPALIVE_MS`, default 25000, `0` turns it off), and repeated GET requests are answered from memory for 20 seconds per owner (`READ_CACHE_MS`, `0` turns it off).
+  Any change you make through the app (add, edit, pay, delete) clears your cached answers immediately; changes made outside the API (like the import script) show within 20 seconds.
+  For the biggest gain, run the API in the same region as Supabase (see docs/DEPLOYMENT.md).
+
 ### Electricity rates, bill PDF and dues of tenants who left
 - **Rate per unit is set at three levels**, each prefilled from the one above: the property default (Bill Settings), the room (new rooms start at the property default), and the tenant's stay
   (starts at the room's rate; change it any time under Tenant > Electricity > Change, optionally also as the room's default). On *Generate Bill* the rate is shown and editable:

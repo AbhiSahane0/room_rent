@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { PaymentMethod, Prisma } from '@prisma/client';
 import { fromPaise, toPaise } from '../billing/bill-calculator';
 import { monthLabel } from '../billing/bills.service';
 import { todayUtc } from '../common/dates';
@@ -8,6 +8,15 @@ import { PrismaService } from '../common/prisma.service';
 import { PropertiesService } from '../properties/properties.service';
 
 const MS_DAY = 86_400_000;
+
+interface CollectionRow {
+  start: Date;
+  billed: { rent: number; electricity: number; other: number; expected: number; bills: number };
+  collected: { amount: number; n: number };
+  by_method: { method: PaymentMethod; amount: number; n: number }[];
+  trend_billed: { ym: string; amount: number }[];
+  trend_paid: { ym: string; amount: number }[];
+}
 const num = (d: Prisma.Decimal | number | null | undefined) => (d == null ? 0 : typeof d === 'number' ? d : d.toNumber());
 const ymOf = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 
@@ -25,76 +34,80 @@ export const shift = (ym: string, delta: number) => {
 export class ReportsService {
   constructor(private readonly prisma: PrismaService, private readonly properties: PropertiesService) {}
 
+  /** Runs `fn` for the user's properties. A named property is checked in parallel with the work (404 if it is not theirs), saving a round trip. */
+  private async scoped<T>(userId: string, propertyId: string | undefined, fn: (ids: string[]) => Promise<T>): Promise<T> {
+    if (!propertyId) return fn(await this.properties.ownedIds(userId));
+    const [, result] = await Promise.all([this.properties.assertOwned(userId, propertyId), fn([propertyId])]);
+    return result;
+  }
+
   async scope(userId: string, propertyId?: string) {
     return propertyId ? [(await this.properties.assertOwned(userId, propertyId)).id] : this.properties.ownedIds(userId);
   }
 
-  /** This month, unless nothing is billed yet: then the most recent month that has bills, so the dashboard is never empty by accident. */
-  private async defaultMonth(propertyIds: string[]) {
-    const now = currentMonth();
-    const live = { propertyId: { in: propertyIds }, status: { notIn: ['CANCELLED' as const, 'DRAFT' as const] } };
-    // One query: the latest billed month up to (and including) the current one; the current month wins when it has bills.
-    const latest = await this.prisma.bill.findFirst({ where: { ...live, billingPeriod: { lte: bounds(now).start } }, orderBy: { billingPeriod: 'desc' }, select: { billingPeriod: true } });
-    return latest ? ymOf(latest.billingPeriod) : now;
-  }
-
   /** What was billed for the month, what came in during it, and what is still owed right now. */
   async collection(userId: string, q: { propertyId?: string; month?: string }) {
-    return this.collectionFor(await this.scope(userId, q.propertyId), q.month);
+    return this.scoped(userId, q.propertyId, (ids) => this.collectionFor(ids, q.month));
   }
 
-  /** Same as `collection` for property ids the caller has already verified as the user's own. */
-  async collectionFor(propertyIds: string[], requestedMonth?: string) {
-    const month = requestedMonth ?? (await this.defaultMonth(propertyIds));
-    const { start, end } = bounds(month);
-
-    const [billed, collected, byMethod, outstanding, trend] = await Promise.all([
-      this.prisma.bill.findMany({
-        where: { propertyId: { in: propertyIds }, billingPeriod: start, status: { notIn: ['CANCELLED', 'DRAFT'] } },
-        select: { totalDue: true, previousBalance: true, rentAmount: true, electricityAmount: true, otherChargesAmount: true },
-      }),
-      this.prisma.payment.aggregate({ where: { bill: { propertyId: { in: propertyIds } }, paymentDate: { gte: start, lte: end } }, _sum: { amount: true }, _count: true }),
-      this.prisma.payment.groupBy({ by: ['method'], where: { bill: { propertyId: { in: propertyIds } }, paymentDate: { gte: start, lte: end } }, _sum: { amount: true }, _count: true }),
-      this.totalOutstanding(propertyIds),
-      this.trend(propertyIds, month),
+  /**
+   * Same as `collection` for property ids the caller has already verified as the user's own.
+   * The month (this month, unless nothing is billed yet: then the latest month with bills), what was billed, what came in,
+   * how it was paid and the six-month trend are all worked out in ONE database query, so the whole report costs a single
+   * network round trip (plus the outstanding balance, fetched in parallel, or passed in when the caller already has it).
+   */
+  async collectionFor(propertyIds: string[], requestedMonth?: string, pending?: Promise<number> | number) {
+    const nowStart = ymOf(todayUtc()) + '-01';
+    const reqStart = requestedMonth ? `${requestedMonth}-01` : null;
+    const [rows, outstanding] = await Promise.all([
+      this.prisma.$queryRaw<CollectionRow[]>`
+        WITH r AS (
+          SELECT s, ((s + interval '1 month')::date - 1) AS e, (s - interval '5 months')::date AS f
+            FROM (SELECT COALESCE(
+                    ${reqStart}::date,
+                    (SELECT billing_period FROM bills WHERE property_id = ANY(${propertyIds}::uuid[]) AND status NOT IN ('CANCELLED', 'DRAFT') AND billing_period <= ${nowStart}::date ORDER BY billing_period DESC LIMIT 1),
+                    ${nowStart}::date) AS s) m
+        )
+        SELECT r.s AS start,
+          (SELECT row_to_json(x) FROM (
+             SELECT COALESCE(SUM(rent_amount), 0) AS rent, COALESCE(SUM(electricity_amount), 0) AS electricity, COALESCE(SUM(other_charges_amount), 0) AS other,
+                    COALESCE(SUM(total_due - previous_balance), 0) AS expected, COUNT(*)::int AS bills
+               FROM bills WHERE property_id = ANY(${propertyIds}::uuid[]) AND status NOT IN ('CANCELLED', 'DRAFT') AND billing_period = r.s) x) AS billed,
+          (SELECT row_to_json(x) FROM (
+             SELECT COALESCE(SUM(p.amount), 0) AS amount, COUNT(*)::int AS n
+               FROM payments p JOIN bills b ON b.id = p.bill_id WHERE b.property_id = ANY(${propertyIds}::uuid[]) AND p.payment_date BETWEEN r.s AND r.e) x) AS collected,
+          (SELECT COALESCE(json_agg(x), '[]'::json) FROM (
+             SELECT p.method::text AS method, SUM(p.amount) AS amount, COUNT(*)::int AS n
+               FROM payments p JOIN bills b ON b.id = p.bill_id WHERE b.property_id = ANY(${propertyIds}::uuid[]) AND p.payment_date BETWEEN r.s AND r.e GROUP BY p.method) x) AS by_method,
+          (SELECT COALESCE(json_agg(x), '[]'::json) FROM (
+             SELECT to_char(billing_period, 'YYYY-MM') AS ym, SUM(total_due - previous_balance) AS amount
+               FROM bills WHERE property_id = ANY(${propertyIds}::uuid[]) AND status NOT IN ('CANCELLED', 'DRAFT') AND billing_period BETWEEN r.f AND r.e GROUP BY 1) x) AS trend_billed,
+          (SELECT COALESCE(json_agg(x), '[]'::json) FROM (
+             SELECT to_char(p.payment_date, 'YYYY-MM') AS ym, SUM(p.amount) AS amount
+               FROM payments p JOIN bills b ON b.id = p.bill_id WHERE b.property_id = ANY(${propertyIds}::uuid[]) AND p.payment_date BETWEEN r.f AND r.e GROUP BY 1) x) AS trend_paid
+        FROM r`,
+      pending !== undefined ? pending : this.totalOutstanding(propertyIds),
     ]);
-    // "Expected" is this month's own charges, not the arrears that were rolled into them.
-    const expected = fromPaise(billed.reduce((s, b) => s + toPaise(num(b.totalDue)) - toPaise(num(b.previousBalance)), 0));
-    const collectedAmount = num(collected._sum.amount);
-    const sumOf = (pick: (b: (typeof billed)[number]) => Prisma.Decimal) => fromPaise(billed.reduce((s, b) => s + toPaise(num(pick(b))), 0));
+    const row = rows[0];
+    const month = ymOf(row.start);
+    const { start } = bounds(month);
+    const months = Array.from({ length: 6 }, (_, i) => shift(month, i - 5));
+    const at = (list: { ym: string; amount: number }[], ym: string) => num(list.find((r) => r.ym === ym)?.amount);
+    const collected = num(row.collected.amount);
+    const expected = num(row.billed.expected);
     return {
       /** What this month's bills are made of (rent, electricity, other charges), excluding carried-over arrears. */
-      composition: { rent: sumOf((b) => b.rentAmount), electricity: sumOf((b) => b.electricityAmount), other: sumOf((b) => b.otherChargesAmount), bills: billed.length },
+      composition: { rent: num(row.billed.rent), electricity: num(row.billed.electricity), other: num(row.billed.other), bills: row.billed.bills },
       month,
       monthLabel: monthLabel(start),
       expected,
-      collected: collectedAmount,
-      paymentCount: collected._count,
+      collected,
+      paymentCount: row.collected.n,
       pending: outstanding,
-      collectionRate: expected > 0 ? Math.min(1, collectedAmount / expected) : 0,
-      byMethod: byMethod.map((m) => ({ method: m.method, amount: num(m._sum.amount), count: m._count })).sort((a, b) => b.amount - a.amount),
-      trend,
+      collectionRate: expected > 0 ? Math.min(1, collected / expected) : 0,
+      byMethod: row.by_method.map((m) => ({ method: m.method, amount: num(m.amount), count: m.n })).sort((a, b) => b.amount - a.amount),
+      trend: months.map((ym) => ({ month: ym, label: monthLabel(bounds(ym).start).slice(0, 3), expected: at(row.trend_billed, ym), collected: at(row.trend_paid, ym) })),
     };
-  }
-
-  /** Last six months ending at `month`: billed vs collected. */
-  private async trend(propertyIds: string[], month: string) {
-    const months = Array.from({ length: 6 }, (_, i) => shift(month, i - 5));
-    const from = bounds(months[0]).start;
-    const to = bounds(month).end;
-    const [billed, paid] = await Promise.all([
-      this.prisma.$queryRaw<{ ym: string; amount: Prisma.Decimal }[]>`
-        SELECT to_char(billing_period, 'YYYY-MM') AS ym, COALESCE(SUM(total_due - previous_balance), 0) AS amount
-          FROM bills WHERE property_id = ANY(${propertyIds}::uuid[]) AND status NOT IN ('CANCELLED', 'DRAFT') AND billing_period BETWEEN ${from} AND ${to}
-         GROUP BY 1`,
-      this.prisma.$queryRaw<{ ym: string; amount: Prisma.Decimal }[]>`
-        SELECT to_char(p.payment_date, 'YYYY-MM') AS ym, COALESCE(SUM(p.amount), 0) AS amount
-          FROM payments p JOIN bills b ON b.id = p.bill_id
-         WHERE b.property_id = ANY(${propertyIds}::uuid[]) AND p.payment_date BETWEEN ${from} AND ${to}
-         GROUP BY 1`,
-    ]);
-    const get = (rows: { ym: string; amount: Prisma.Decimal }[], ym: string) => num(rows.find((r) => r.ym === ym)?.amount);
-    return months.map((ym) => ({ month: ym, label: monthLabel(bounds(ym).start).slice(0, 3), expected: get(billed, ym), collected: get(paid, ym) }));
   }
 
   private async openBills(propertyIds: string[]) {
@@ -115,7 +128,7 @@ export class ReportsService {
   }
 
   async outstanding(userId: string, q: { propertyId?: string }) {
-    return this.outstandingFor(await this.scope(userId, q.propertyId));
+    return this.scoped(userId, q.propertyId, (ids) => this.outstandingFor(ids));
   }
 
   async outstandingFor(propertyIds: string[]) {
@@ -189,7 +202,7 @@ export class ReportsService {
   }
 
   async occupancy(userId: string, q: { propertyId?: string }) {
-    return this.occupancyFor(await this.scope(userId, q.propertyId));
+    return this.scoped(userId, q.propertyId, (ids) => this.occupancyFor(ids));
   }
 
   async occupancyFor(propertyIds: string[]) {

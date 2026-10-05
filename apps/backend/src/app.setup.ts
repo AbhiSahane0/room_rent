@@ -4,6 +4,7 @@ import { Reflector } from '@nestjs/core';
 import helmet from 'helmet';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { Env } from './common/env';
+import { ReadCacheInterceptor } from './common/read-cache.interceptor';
 import { ResponseInterceptor } from './common/response.interceptor';
 import { createValidationPipe } from './common/validation';
 
@@ -22,7 +23,9 @@ export function configureApp(app: NestExpressApplication) {
   app.enableCors({ origin: origins.length ? origins : false, credentials: false });
   app.useGlobalPipes(createValidationPipe());
   app.useGlobalFilters(new AllExceptionsFilter());
-  app.useGlobalInterceptors(new ResponseInterceptor(app.get(Reflector)));
+  // The cache is registered first, so it sees (and stores) the final response body. Off in tests unless READ_CACHE_MS is set explicitly.
+  const cacheMs = Number(process.env.READ_CACHE_MS ?? (process.env.NODE_ENV === 'test' ? 0 : 20_000));
+  app.useGlobalInterceptors(new ReadCacheInterceptor(cacheMs), new ResponseInterceptor(app.get(Reflector)));
   // Needed so rate limiting sees the real client IP behind a proxy. Never trust X-Forwarded-For when exposed directly.
   app.set('trust proxy', config.get('TRUST_PROXY', { infer: true }));
 }
